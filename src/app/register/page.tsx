@@ -1,58 +1,62 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { createClient } from "@/lib/supabase";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
 
 export default function RegisterPage() {
-  const { register } = useAuth();
-  const router = useRouter();
+  const supabase = createClient();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
   async function handleRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setLoading(true);
     setError("");
+    setMessage("");
 
-    try {
-      await register(name, email, password);
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: name,
+        },
+      },
+    });
 
-      router.push("/dashboard");
-      router.refresh();
-    } catch (error) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Registration failed."
+    if (error) {
+      setError(error.message);
+    } else {
+      setMessage(
+        "Account created successfully! Please check your email and click the verification link."
       );
-    } finally {
-      setLoading(false);
     }
+
+    setLoading(false);
   }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gray-950 px-6 text-white">
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-8">
-        <h1 className="text-3xl font-bold">
-          Create your{" "}
-          <span className="text-blue-500">CareerAI</span> account
+        <h1 className="text-center text-3xl font-bold">
+          Create Your <span className="text-blue-500">CareerAI</span> Account
         </h1>
 
-        <p className="mt-2 text-gray-400">
-          Start building your career with AI.
+        <p className="mt-3 text-center text-gray-400">
+          Start managing your career with AI.
         </p>
 
         <form onSubmit={handleRegister} className="mt-8 space-y-5">
           <div>
-            <label className="mb-2 block text-sm">
+            <label className="mb-2 block text-sm font-medium">
               Full Name
             </label>
 
@@ -62,12 +66,12 @@ export default function RegisterPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter your name"
-              className="w-full rounded-lg border border-white/10 bg-gray-900 px-4 py-3 outline-none focus:border-blue-500"
+              className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 outline-none focus:border-blue-500"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm">
+            <label className="mb-2 block text-sm font-medium">
               Email
             </label>
 
@@ -77,25 +81,37 @@ export default function RegisterPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="w-full rounded-lg border border-white/10 bg-gray-900 px-4 py-3 outline-none focus:border-blue-500"
+              className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 outline-none focus:border-blue-500"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm">
+            <label className="mb-2 block text-sm font-medium">
               Password
             </label>
 
             <input
               type="password"
               required
-              minLength={8}
+              minLength={6}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Minimum 8 characters"
-              className="w-full rounded-lg border border-white/10 bg-gray-900 px-4 py-3 outline-none focus:border-blue-500"
+              placeholder="Minimum 6 characters"
+              className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 outline-none focus:border-blue-500"
             />
           </div>
+
+          {error && (
+            <div className="rounded-lg bg-red-500/10 p-4 text-sm text-red-400">
+              {error}
+            </div>
+          )}
+
+          {message && (
+            <div className="rounded-lg bg-blue-500/10 p-4 text-sm text-blue-400">
+              {message}
+            </div>
+          )}
 
           <button
             type="submit"
@@ -106,17 +122,11 @@ export default function RegisterPage() {
           </button>
         </form>
 
-        {error && (
-          <p className="mt-5 rounded-lg bg-red-500/10 p-3 text-sm text-red-400">
-            {error}
-          </p>
-        )}
-
         <p className="mt-6 text-center text-sm text-gray-400">
           Already have an account?{" "}
           <Link
             href="/login"
-            className="text-blue-500 hover:underline"
+            className="text-blue-500 hover:text-blue-400"
           >
             Login
           </Link>
