@@ -16,6 +16,10 @@ export default function Navbar() {
             Home
           </Link>
 
+          <Link href="/job-match" className="text-gray-300 hover:text-white">
+            AI Job Match
+          </Link>
+
           <Link href="/jobs" className="text-gray-300 hover:text-white">
             Jobs
           </Link>
@@ -30,13 +34,19 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center gap-3">
-          <button className="hidden rounded-lg px-4 py-2 text-gray-300 hover:text-white sm:block">
+          <Link
+            href="/login"
+            className="hidden rounded-lg px-4 py-2 text-gray-300 hover:text-white sm:block"
+          >
             Login
-          </button>
+          </Link>
 
-          <button className="rounded-lg bg-blue-600 px-5 py-2 font-semibold hover:bg-blue-700">
+          <Link
+            href="/register"
+            className="rounded-lg bg-blue-600 px-5 py-2 font-semibold hover:bg-blue-700"
+          >
             Get Started
-          </button>
+          </Link>
         </div>
 
       </div>

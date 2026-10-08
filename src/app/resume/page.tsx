@@ -2,106 +2,126 @@
 
 import { ChangeEvent, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
 
 type Resume = {
   id: string;
-  user_id: string;
   file_name: string;
   file_path: string;
   file_size: number | null;
   created_at: string;
 };
 
+type Analysis = {
+  score: number;
+  summary: string;
+  skills: string[];
+  strengths: string[];
+  missingKeywords: string[];
+  improvements: string[];
+  experienceLevel: string;
+};
+
 export default function ResumePage() {
   const supabase = createClient();
-  const router = useRouter();
 
-  const [userId, setUserId] = useState("");
   const [resume, setResume] = useState<Resume | null>(null);
-
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisStep, setAnalysisStep] = useState("");
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  const [analysis, setAnalysis] =
+    useState<Analysis | null>(null);
+
+  // Load current user's resume
   useEffect(() => {
-    async function loadResume() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-
-      setUserId(user.id);
-
-      const { data, error } = await supabase
-        .from("resumes")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (error) {
-        setError(error.message);
-      }
-
-      if (data) {
-        setResume(data);
-      }
-
-      setLoading(false);
-    }
-
     loadResume();
-  }, [router, supabase]);
+  }, []);
 
-  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    setMessage("");
+  async function loadResume() {
+    setLoading(true);
     setError("");
 
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        throw new Error("Please login first.");
+      }
+
+      const { data, error: resumeError } =
+        await supabase
+          .from("resumes")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", {
+            ascending: false,
+          })
+          .limit(1)
+          .maybeSingle();
+
+      if (resumeError) {
+        throw new Error(resumeError.message);
+      }
+
+      setResume(data);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not load resume."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Upload resume
+  async function handleUpload(
+    event: ChangeEvent<HTMLInputElement>
+  ) {
     const file = event.target.files?.[0];
 
     if (!file) {
-      setSelectedFile(null);
       return;
     }
 
+    setMessage("");
+    setError("");
+    setAnalysis(null);
+
+    // PDF check
     if (file.type !== "application/pdf") {
       setError("Only PDF files are allowed.");
-      setSelectedFile(null);
       return;
     }
 
+    // 5MB check
     if (file.size > 5 * 1024 * 1024) {
-      setError("File size must be less than 5MB.");
-      setSelectedFile(null);
-      return;
-    }
-
-    setSelectedFile(file);
-  }
-
-  async function handleUpload() {
-    if (!selectedFile || !userId) {
-      setError("Please select a PDF resume first.");
+      setError("Resume must be smaller than 5MB.");
       return;
     }
 
     setUploading(true);
-    setMessage("");
-    setError("");
 
     try {
-      // Delete previous resume if it exists
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        throw new Error("Please login first.");
+      }
+
+      // Delete old resume first
       if (resume) {
         await supabase.storage
           .from("resumes")
@@ -113,296 +133,613 @@ export default function ResumePage() {
           .eq("id", resume.id);
       }
 
-      const fileExtension = selectedFile.name.split(".").pop() || "pdf";
+      // Create unique file name
+      const filePath = `${user.id}/${crypto.randomUUID()}.pdf`;
 
-      const filePath = `${userId}/${crypto.randomUUID()}.${fileExtension}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("resumes")
-        .upload(filePath, selectedFile, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: selectedFile.type,
-        });
+      // Upload to Supabase Storage
+      const { error: uploadError } =
+        await supabase.storage
+          .from("resumes")
+          .upload(filePath, file, {
+            contentType: "application/pdf",
+            upsert: false,
+          });
 
       if (uploadError) {
         throw new Error(uploadError.message);
       }
 
-      const { data, error: databaseError } = await supabase
-        .from("resumes")
-        .insert({
-          user_id: userId,
-          file_name: selectedFile.name,
-          file_path: filePath,
-          file_size: selectedFile.size,
-        })
-        .select()
-        .single();
+      // Save metadata
+      const { data, error: insertError } =
+        await supabase
+          .from("resumes")
+          .insert({
+            user_id: user.id,
+            file_name: file.name,
+            file_path: filePath,
+            file_size: file.size,
+          })
+          .select()
+          .single();
 
-      if (databaseError) {
+      if (insertError) {
+        // Remove uploaded file if database insert fails
         await supabase.storage
           .from("resumes")
           .remove([filePath]);
 
-        throw new Error(databaseError.message);
+        throw new Error(insertError.message);
       }
 
       setResume(data);
-      setSelectedFile(null);
 
-      setMessage("Resume uploaded successfully!");
+      setMessage(
+        "Resume uploaded successfully!"
+      );
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
-          : "Something went wrong while uploading."
+          : "Resume upload failed."
       );
     } finally {
       setUploading(false);
+
+      event.target.value = "";
     }
   }
 
-  async function handleDownload() {
-    if (!resume) return;
-
-    setError("");
-
-    const { data, error } = await supabase.storage
-      .from("resumes")
-      .createSignedUrl(resume.file_path, 60);
-
-    if (error) {
-      setError(error.message);
+  // Open resume
+  async function handleOpenResume() {
+    if (!resume) {
       return;
     }
 
-    window.open(data.signedUrl, "_blank");
-  }
-
-  async function handleDelete() {
-    if (!resume) return;
-
-    setDeleting(true);
-    setMessage("");
     setError("");
 
     try {
-      const { error: storageError } = await supabase.storage
-        .from("resumes")
-        .remove([resume.file_path]);
+      const { data, error } =
+        await supabase.storage
+          .from("resumes")
+          .createSignedUrl(
+            resume.file_path,
+            120
+          );
 
-      if (storageError) {
-        throw new Error(storageError.message);
+      if (error || !data?.signedUrl) {
+        throw new Error(
+          error?.message ||
+            "Could not create resume URL."
+        );
       }
 
-      const { error: databaseError } = await supabase
-        .from("resumes")
-        .delete()
-        .eq("id", resume.id);
-
-      if (databaseError) {
-        throw new Error(databaseError.message);
-      }
-
-      setResume(null);
-      setMessage("Resume deleted successfully.");
+      window.open(
+        data.signedUrl,
+        "_blank"
+      );
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
-          : "Something went wrong while deleting."
+          : "Could not open resume."
       );
-    } finally {
-      setDeleting(false);
     }
   }
 
-  function formatFileSize(bytes: number | null) {
-    if (!bytes) return "Unknown size";
+  // Delete resume
+  async function handleDelete() {
+    if (!resume) {
+      return;
+    }
 
-    const mb = bytes / (1024 * 1024);
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this resume?"
+    );
 
-    return `${mb.toFixed(2)} MB`;
+    if (!confirmed) {
+      return;
+    }
+
+    setError("");
+    setMessage("");
+
+    try {
+      const { error: storageError } =
+        await supabase.storage
+          .from("resumes")
+          .remove([resume.file_path]);
+
+      if (storageError) {
+        throw new Error(
+          storageError.message
+        );
+      }
+
+      const { error: databaseError } =
+        await supabase
+          .from("resumes")
+          .delete()
+          .eq("id", resume.id);
+
+      if (databaseError) {
+        throw new Error(
+          databaseError.message
+        );
+      }
+
+      setResume(null);
+      setAnalysis(null);
+
+      setMessage(
+        "Resume deleted successfully."
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not delete resume."
+      );
+    }
+  }
+
+  // Analyze resume with Gemini
+  async function handleAnalyze() {
+    if (!resume) {
+      setError(
+        "Please upload a resume first."
+      );
+      return;
+    }
+
+    setAnalyzing(true);
+    setAnalysisStep("Preparing your resume...");
+    setMessage("");
+    setError("");
+    setAnalysis(null);
+
+    try {
+      setAnalysisStep("Downloading your resume...");
+      const { data: blob, error: downloadError } =
+        await supabase.storage
+          .from("resumes")
+          .download(resume.file_path);
+
+      if (downloadError || !blob) {
+        throw new Error(
+          downloadError?.message || "Could not download resume for analysis."
+        );
+      }
+
+      // Create File object
+      const file = new File(
+        [blob],
+        resume.file_name,
+        {
+          type: "application/pdf",
+        }
+      );
+
+      // FormData
+      const formData = new FormData();
+
+      formData.append(
+        "file",
+        file
+      );
+
+      setAnalysisStep("Gemini is analyzing your resume...");
+      const response = await fetch(
+        "/api/analyze-resume",
+        {
+          method: "POST",
+          body: formData,
+          signal: AbortSignal.timeout(55_000),
+        }
+      );
+
+      const result: {
+        analysis?: Analysis;
+        error?: string;
+      } =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ||
+            "Gemini analysis failed."
+        );
+      }
+
+      if (!result.analysis) {
+        throw new Error(
+          "Gemini returned an invalid resume analysis. Please try again."
+        );
+      }
+
+      setAnalysis(
+        result.analysis
+      );
+
+      setMessage(
+        "Gemini AI resume analysis completed successfully!"
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error && err.name === "TimeoutError"
+          ? "Resume analysis timed out. Please try again."
+          : err instanceof Error
+          ? err.message
+          : "Resume analysis failed."
+      );
+    } finally {
+      setAnalyzing(false);
+      setAnalysisStep("");
+    }
   }
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-950 text-white">
-        <p className="text-gray-400">Loading resume...</p>
+      <main className="min-h-screen bg-gray-950 px-6 py-16 text-white">
+        <div className="mx-auto max-w-4xl">
+          <p className="text-gray-400">
+            Loading resume...
+          </p>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gray-950 px-6 py-10 text-white">
-      <div className="mx-auto max-w-4xl">
+    <main className="min-h-screen bg-gray-950 px-6 py-12 text-white">
+      <div className="mx-auto max-w-5xl">
 
         {/* Header */}
-        <div className="mb-8">
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="mb-5 text-sm text-blue-400 hover:text-blue-300"
-          >
-            ← Back to Dashboard
-          </button>
+        <div className="mb-10">
+          <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-blue-400">
+            CareerAI
+          </p>
 
           <h1 className="text-4xl font-bold">
-            My <span className="text-blue-500">Resume</span>
+            AI Resume Analyzer
           </h1>
 
-          <p className="mt-2 text-gray-400">
-            Upload your resume and prepare it for AI analysis.
+          <p className="mt-3 max-w-2xl text-gray-400">
+            Upload your resume and let Gemini AI
+            analyze your skills, strengths,
+            missing keywords, and improvements.
           </p>
         </div>
 
         {/* Messages */}
         {message && (
-          <div className="mb-6 rounded-lg border border-green-500/20 bg-green-500/10 p-4 text-green-400">
-            ✅ {message}
+          <div className="mb-6 rounded-lg border border-green-800 bg-green-950/40 px-4 py-3 text-green-300">
+            {message}
           </div>
         )}
 
         {error && (
-          <div className="mb-6 rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-red-400">
-            ❌ {error}
+          <div className="mb-6 rounded-lg border border-red-800 bg-red-950/40 px-4 py-3 text-red-300">
+            {error}
           </div>
         )}
 
         {/* Upload Card */}
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
+        <section className="rounded-2xl border border-gray-800 bg-gray-900 p-6 shadow-xl">
 
-          <h2 className="text-2xl font-bold">
-            Upload Resume
-          </h2>
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold">
+              Resume
+            </h2>
 
-          <p className="mt-2 text-gray-400">
-            Upload your latest resume in PDF format.
-          </p>
-
-          <div className="mt-6 rounded-xl border-2 border-dashed border-gray-700 p-8 text-center">
-
-            <div className="text-5xl">
-              📄
-            </div>
-
-            <h3 className="mt-4 text-lg font-semibold">
-              Choose your resume
-            </h3>
-
-            <p className="mt-2 text-sm text-gray-500">
-              PDF only · Maximum 5MB
+            <p className="mt-1 text-sm text-gray-400">
+              PDF only • Maximum 5MB
             </p>
-
-            <label className="mt-6 inline-block cursor-pointer rounded-lg bg-blue-600 px-6 py-3 font-semibold hover:bg-blue-700">
-              Choose PDF
-
-              <input
-                type="file"
-                accept="application/pdf,.pdf"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-            </label>
-
-            {selectedFile && (
-              <div className="mt-5 rounded-lg bg-gray-900 p-4">
-                <p className="font-medium">
-                  {selectedFile.name}
-                </p>
-
-                <p className="mt-1 text-sm text-gray-500">
-                  {formatFileSize(selectedFile.size)}
-                </p>
-              </div>
-            )}
-
           </div>
 
-          <button
-            onClick={handleUpload}
-            disabled={!selectedFile || uploading}
-            className="mt-6 w-full rounded-lg bg-blue-600 py-3 font-semibold hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {uploading ? "Uploading Resume..." : "Upload Resume"}
-          </button>
+          {!resume ? (
+            <div className="rounded-xl border-2 border-dashed border-gray-700 p-10 text-center">
 
-        </div>
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600/20 text-2xl">
+                📄
+              </div>
 
-        {/* Existing Resume */}
+              <h3 className="text-lg font-semibold">
+                Upload your resume
+              </h3>
+
+              <p className="mt-2 text-sm text-gray-400">
+                Upload a PDF resume to start
+                AI analysis.
+              </p>
+
+              <label className="mt-6 inline-block cursor-pointer rounded-lg bg-blue-600 px-6 py-3 font-semibold transition hover:bg-blue-700">
+                {uploading
+                  ? "Uploading..."
+                  : "Choose PDF"}
+
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={handleUpload}
+                  disabled={uploading}
+                />
+              </label>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-gray-800 bg-gray-950 p-5">
+
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+
+                <div>
+                  <p className="font-semibold">
+                    {resume.file_name}
+                  </p>
+
+                  <p className="mt-1 text-sm text-gray-500">
+                    {resume.file_size
+                      ? `${(
+                          resume.file_size /
+                          1024 /
+                          1024
+                        ).toFixed(2)} MB`
+                      : "PDF"}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+
+                  <button
+                    onClick={
+                      handleOpenResume
+                    }
+                    className="rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold hover:bg-gray-800"
+                  >
+                    View Resume
+                  </button>
+
+                  <label className="cursor-pointer rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold hover:bg-gray-800">
+                    Replace
+
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      className="hidden"
+                      onChange={
+                        handleUpload
+                      }
+                      disabled={uploading}
+                    />
+                  </label>
+
+                  <button
+                    onClick={handleDelete}
+                    className="rounded-lg border border-red-800 px-4 py-2 text-sm font-semibold text-red-400 hover:bg-red-950"
+                  >
+                    Delete
+                  </button>
+
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* AI Analyzer */}
         {resume && (
-          <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-8">
+          <section className="mt-8 rounded-2xl border border-blue-900/50 bg-blue-950/20 p-6">
 
-            <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
 
               <div>
-                <p className="text-sm text-gray-500">
-                  Current Resume
+                <p className="text-sm font-semibold text-blue-400">
+                  GEMINI AI
                 </p>
 
-                <h2 className="mt-2 text-xl font-bold">
-                  {resume.file_name}
+                <h2 className="mt-2 text-2xl font-bold">
+                  Analyze Your Resume
                 </h2>
 
-                <p className="mt-2 text-sm text-gray-400">
-                  {formatFileSize(resume.file_size)}
+                <p className="mt-2 max-w-xl text-gray-400">
+                  Get an AI-powered evaluation of
+                  your resume, including score,
+                  skills, strengths, missing
+                  keywords, and improvement
+                  suggestions.
                 </p>
               </div>
 
-              <div className="flex gap-3">
-
-                <button
-                  onClick={handleDownload}
-                  className="rounded-lg border border-gray-700 px-5 py-3 font-semibold hover:bg-gray-800"
-                >
-                  View Resume
-                </button>
-
-                <button
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  className="rounded-lg bg-red-600 px-5 py-3 font-semibold hover:bg-red-700 disabled:opacity-50"
-                >
-                  {deleting ? "Deleting..." : "Delete"}
-                </button>
-
-              </div>
+              <button
+                onClick={handleAnalyze}
+                disabled={analyzing}
+                aria-busy={analyzing}
+                className="rounded-lg bg-blue-600 px-6 py-3 font-semibold hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {analyzing
+                  ? "Analyzing..."
+                  : "Analyze with Gemini"}
+              </button>
 
             </div>
 
-          </div>
+            {analyzing && (
+              <p
+                className="mt-4 text-sm text-blue-300"
+                role="status"
+                aria-live="polite"
+              >
+                {analysisStep}
+              </p>
+            )}
+          </section>
         )}
 
-        {/* AI Coming Soon */}
-        {resume && (
-          <div className="mt-8 rounded-2xl border border-blue-500/20 bg-blue-500/5 p-8">
+        {/* Analysis */}
+        {analysis && (
+          <section className="mt-8 space-y-6">
 
-            <div className="flex items-start gap-4">
+            {/* Score */}
+            <div className="grid gap-6 md:grid-cols-2">
 
-              <div className="text-4xl">
-                🤖
-              </div>
+              <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6 text-center">
 
-              <div>
-                <h2 className="text-xl font-bold">
-                  AI Resume Analysis
-                </h2>
-
-                <p className="mt-2 text-gray-400">
-                  Your resume is ready for the next step.
-                  Soon CareerAI will analyze your resume,
-                  identify skills, detect missing keywords,
-                  and provide improvement suggestions.
+                <p className="text-sm text-gray-400">
+                  Resume Score
                 </p>
 
-                <span className="mt-4 inline-block rounded-full bg-blue-500/10 px-4 py-2 text-sm text-blue-400">
-                  Coming in Day 6
-                </span>
+                <div className="mt-4 text-6xl font-bold text-blue-400">
+                  {analysis.score}
+                  <span className="text-2xl text-gray-500">
+                    /100
+                  </span>
+                </div>
+
+                <p className="mt-3 text-sm text-gray-500">
+                  AI-generated resume score
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6 text-center">
+
+                <p className="text-sm text-gray-400">
+                  Experience Level
+                </p>
+
+                <div className="mt-5 text-3xl font-bold">
+                  {analysis.experienceLevel}
+                </div>
+
+                <p className="mt-3 text-sm text-gray-500">
+                  Based on your resume
+                </p>
               </div>
 
             </div>
 
-          </div>
+            {/* Summary */}
+            <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6">
+
+              <h2 className="text-xl font-bold">
+                Resume Summary
+              </h2>
+
+              <p className="mt-4 leading-7 text-gray-300">
+                {analysis.summary}
+              </p>
+
+            </div>
+
+            {/* Skills */}
+            <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6">
+
+              <h2 className="text-xl font-bold">
+                Detected Skills
+              </h2>
+
+              <div className="mt-4 flex flex-wrap gap-3">
+
+                {analysis.skills.map(
+                  (skill, index) => (
+                    <span
+                      key={`${skill}-${index}`}
+                      className="rounded-full bg-blue-600/20 px-4 py-2 text-sm text-blue-300"
+                    >
+                      {skill}
+                    </span>
+                  )
+                )}
+
+              </div>
+            </div>
+
+            {/* Strengths */}
+            <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6">
+
+              <h2 className="text-xl font-bold">
+                Strengths
+              </h2>
+
+              <ul className="mt-4 space-y-3">
+
+                {analysis.strengths.map(
+                  (item, index) => (
+                    <li
+                      key={index}
+                      className="flex gap-3 text-gray-300"
+                    >
+                      <span className="text-green-400">
+                        ✓
+                      </span>
+
+                      <span>{item}</span>
+                    </li>
+                  )
+                )}
+
+              </ul>
+            </div>
+
+            {/* Missing Keywords */}
+            <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6">
+
+              <h2 className="text-xl font-bold">
+                Missing Keywords
+              </h2>
+
+              <div className="mt-4 flex flex-wrap gap-3">
+
+                {analysis.missingKeywords.length >
+                0 ? (
+                  analysis.missingKeywords.map(
+                    (keyword, index) => (
+                      <span
+                        key={`${keyword}-${index}`}
+                        className="rounded-full bg-yellow-600/20 px-4 py-2 text-sm text-yellow-300"
+                      >
+                        {keyword}
+                      </span>
+                    )
+                  )
+                ) : (
+                  <p className="text-gray-400">
+                    No major missing keywords
+                    identified.
+                  </p>
+                )}
+
+              </div>
+            </div>
+
+            {/* Improvements */}
+            <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6">
+
+              <h2 className="text-xl font-bold">
+                Improvement Suggestions
+              </h2>
+
+              <ol className="mt-4 space-y-4">
+
+                {analysis.improvements.map(
+                  (item, index) => (
+                    <li
+                      key={index}
+                      className="flex gap-4 text-gray-300"
+                    >
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold">
+                        {index + 1}
+                      </span>
+
+                      <span className="pt-1">
+                        {item}
+                      </span>
+                    </li>
+                  )
+                )}
+
+              </ol>
+            </div>
+
+          </section>
         )}
 
       </div>

@@ -119,11 +119,14 @@ export default function DashboardPage() {
             </h2>
 
             <p className="mt-3 text-gray-400">
-              Find jobs matching your skills and experience.
+              Compare your profile with any job description using AI.
             </p>
 
-            <button className="mt-5 text-sm font-semibold text-blue-400 hover:text-blue-300">
-              Coming Soon →
+            <button
+              onClick={() => router.push("/job-match")}
+              className="mt-5 text-sm font-semibold text-blue-400 hover:text-blue-300"
+            >
+              Analyze Job Match →
             </button>
           </div>
 
