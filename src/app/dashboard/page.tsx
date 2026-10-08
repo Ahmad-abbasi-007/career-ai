@@ -88,22 +88,25 @@ export default function DashboardPage() {
 
           {/* Resume */}
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 transition hover:border-blue-500/50">
-            <div className="text-4xl">
-              📄
-            </div>
+  <div className="text-4xl">
+    📄
+  </div>
 
-            <h2 className="mt-4 text-xl font-bold">
-              Resume
-            </h2>
+  <h2 className="mt-4 text-xl font-bold">
+    Resume
+  </h2>
 
-            <p className="mt-3 text-gray-400">
-              Upload and analyze your resume with AI.
-            </p>
+  <p className="mt-3 text-gray-400">
+    Upload and manage your resume for AI analysis.
+  </p>
 
-            <button className="mt-5 text-sm font-semibold text-blue-400 hover:text-blue-300">
-              Coming Soon →
-            </button>
-          </div>
+  <button
+    onClick={() => router.push("/resume")}
+    className="mt-5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-700"
+  >
+    Manage Resume →
+  </button>
+</div>
 
           {/* Job Matching */}
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 transition hover:border-blue-500/50">
