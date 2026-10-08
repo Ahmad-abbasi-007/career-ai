@@ -37,7 +37,7 @@ values
     'React, JavaScript, TypeScript, HTML, CSS, Tailwind CSS',
     'PKR 80,000 - 120,000',
     'Full Time',
-    'https://example.com/apply'
+    null
   ),
   (
     'Full Stack Developer',
@@ -47,7 +47,7 @@ values
     'React, Next.js, Node.js, Express, PostgreSQL, REST API, AI',
     'PKR 120,000 - 180,000',
     'Full Time',
-    'https://example.com/apply'
+    null
   ),
   (
     'React Developer',
@@ -56,7 +56,7 @@ values
     'Build responsive web interfaces using React and modern frontend technologies. Experience with JavaScript, TypeScript, Git, REST APIs and Tailwind CSS is required.',
     'React, JavaScript, TypeScript, Git, REST API, Tailwind CSS',
     'PKR 90,000 - 140,000',
-    'Remote',
-    'https://example.com/apply'
+    'Full Time',
+    null
   )
 on conflict (title, company) do nothing;

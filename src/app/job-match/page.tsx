@@ -4,32 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import Navbar from "@/components/Navbar";
-
-type Profile = {
-  full_name: string | null;
-  email: string | null;
-  job_title: string | null;
-  bio: string | null;
-  skills: string | null;
-  education: string | null;
-  experience: string | null;
-};
-
-type Analysis = {
-  matchScore: number;
-  summary: string;
-  matchingSkills: string[];
-  missingSkills: string[];
-  whyGoodMatch: string[];
-  improvements: string[];
-};
+import type { CandidateProfile, Job, JobMatchAnalysis } from "@/types";
 
 export default function JobMatchPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
   const [profile, setProfile] =
-    useState<Profile | null>(null);
+    useState<CandidateProfile | null>(null);
 
   const [jobTitle, setJobTitle] =
     useState("");
@@ -37,11 +19,14 @@ export default function JobMatchPage() {
   const [jobDescription, setJobDescription] =
     useState("");
 
+  const [selectedJob, setSelectedJob] =
+    useState<Job | null>(null);
+
   const [resumeText, setResumeText] =
     useState("");
 
   const [analysis, setAnalysis] =
-    useState<Analysis | null>(null);
+    useState<JobMatchAnalysis | null>(null);
 
   const [loading, setLoading] =
     useState(true);
@@ -83,6 +68,27 @@ export default function JobMatchPage() {
         }
 
         setProfile(data);
+
+        const jobId = new URLSearchParams(window.location.search).get("jobId");
+        if (jobId) {
+          const { data: job, error: jobError } = await supabase
+            .from("jobs")
+            .select("id, title, description, job_type")
+            .eq("id", jobId)
+            .maybeSingle<Job>();
+
+          if (jobError) {
+            throw jobError;
+          }
+
+          if (!job) {
+            throw new Error("The selected job could not be found.");
+          }
+
+          setSelectedJob(job);
+          setJobTitle(job.title);
+          setJobDescription(job.description);
+        }
       } catch (err) {
         console.error("Could not load job match profile:", err);
         setError(
@@ -140,7 +146,7 @@ export default function JobMatchPage() {
       );
 
       const result: {
-        analysis?: Analysis;
+        analysis?: JobMatchAnalysis;
         error?: string;
       } = await response.json();
 
@@ -197,7 +203,7 @@ export default function JobMatchPage() {
     return (
       <main className="min-h-screen bg-gray-950 pt-20 text-white">
         <Navbar />
-        <div className="flex min-h-screen items-center justify-center">
+          <div className="flex min-h-[calc(100vh-5rem)] items-center justify-center">
           <p className="text-gray-400">
             Loading your profile...
           </p>
@@ -207,7 +213,8 @@ export default function JobMatchPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-950 text-white">
+    <main className="min-h-screen bg-gray-950 pt-20 text-white">
+      <Navbar />
       {/* Header */}
 
       <section className="border-b border-gray-800 bg-gray-950">
@@ -320,12 +327,18 @@ export default function JobMatchPage() {
                   type="text"
                   value={jobTitle}
                   maxLength={200}
+                  readOnly={Boolean(selectedJob)}
                   onChange={(e) =>
                     setJobTitle(e.target.value)
                   }
                   placeholder="e.g. Frontend Developer"
-                  className="mt-2 w-full rounded-lg border border-gray-700 bg-gray-950 px-4 py-3 text-white outline-none transition focus:border-blue-500"
+                  className="mt-2 w-full rounded-lg border border-gray-700 bg-gray-950 px-4 py-3 text-white outline-none transition focus:border-blue-500 read-only:cursor-not-allowed read-only:opacity-75"
                 />
+                {selectedJob?.job_type && (
+                  <p className="mt-2 text-sm text-gray-400">
+                    Job type: {selectedJob.job_type}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -341,9 +354,10 @@ export default function JobMatchPage() {
                     )
                   }
                   maxLength={20_000}
+                  readOnly={Boolean(selectedJob)}
                   placeholder="Paste the complete job description here..."
                   rows={12}
-                  className="mt-2 w-full resize-none rounded-lg border border-gray-700 bg-gray-950 px-4 py-3 text-white outline-none transition focus:border-blue-500"
+                  className="mt-2 w-full resize-none rounded-lg border border-gray-700 bg-gray-950 px-4 py-3 text-white outline-none transition focus:border-blue-500 read-only:cursor-not-allowed read-only:opacity-75"
                 />
               </div>
 

@@ -1,20 +1,12 @@
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
-
-type MatchAnalysis = {
-  matchScore: number;
-  summary: string;
-  matchingSkills: string[];
-  missingSkills: string[];
-  whyGoodMatch: string[];
-  improvements: string[];
-};
+import type { JobMatchAnalysis } from "@/types";
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
 
-function isMatchAnalysis(value: unknown): value is MatchAnalysis {
+function isMatchAnalysis(value: unknown): value is JobMatchAnalysis {
   if (typeof value !== "object" || value === null) {
     return false;
   }

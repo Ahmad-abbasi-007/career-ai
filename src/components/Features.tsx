@@ -1,4 +1,13 @@
-const features = [
+import Link from "next/link";
+
+type Feature = {
+  icon: string;
+  title: string;
+  description: string;
+  href?: string;
+};
+
+const features: Feature[] = [
   {
     icon: "📄",
     title: "AI Resume Analysis",
@@ -7,9 +16,10 @@ const features = [
   },
   {
     icon: "🤖",
-    title: "Smart Job Matching",
+    title: "Smart Job Search",
     description:
-      "Compare your skills with job requirements and discover how well you match each opportunity.",
+      "Search and filter job opportunities, then discover positions that match your career goals.",
+    href: "/jobs",
   },
   {
     icon: "🎯",
@@ -60,6 +70,15 @@ export default function Features() {
               <p className="mt-3 leading-7 text-gray-400">
                 {feature.description}
               </p>
+
+              {feature.href && (
+                <Link
+                  href={feature.href}
+                  className="mt-5 inline-block text-blue-400 hover:text-blue-300"
+                >
+                  Explore Jobs →
+                </Link>
+              )}
             </div>
           ))}
         </div>

@@ -16,12 +16,20 @@ export default function Navbar() {
             Home
           </Link>
 
+          <Link href="/jobs" className="text-gray-300 hover:text-white">
+            Jobs
+          </Link>
+
           <Link href="/job-match" className="text-gray-300 hover:text-white">
             AI Job Match
           </Link>
 
-          <Link href="/jobs" className="text-gray-300 hover:text-white">
-            Jobs
+          <Link href="/interview" className="text-gray-300 hover:text-white">
+            AI Interview
+          </Link>
+
+          <Link href="/applications" className="text-gray-300 hover:text-white">
+            Applications
           </Link>
 
           <Link href="#features" className="text-gray-300 hover:text-white">

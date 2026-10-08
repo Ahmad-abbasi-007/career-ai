@@ -84,7 +84,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Cards */}
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
+        <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
 
           {/* Resume */}
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 transition hover:border-blue-500/50">
@@ -130,22 +130,42 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          {/* Interview */}
+          {/* Application Tracker */}
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 transition hover:border-blue-500/50">
-            <div className="text-4xl">
-              🎤
-            </div>
+            <div className="text-4xl">📋</div>
 
             <h2 className="mt-4 text-xl font-bold">
-              AI Interviews
+              Application Tracker
             </h2>
 
             <p className="mt-3 text-gray-400">
-              Prepare for interviews using AI.
+              Track applications from Applied to Interview, Offer, or Rejected.
             </p>
 
-            <button className="mt-5 text-sm font-semibold text-blue-400 hover:text-blue-300">
-              Coming Soon →
+            <button
+              onClick={() => router.push("/applications")}
+              className="mt-5 text-sm font-semibold text-blue-400 hover:text-blue-300"
+            >
+              View Applications →
+            </button>
+          </div>
+
+          {/* Interview Coach */}
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 transition hover:border-purple-500/50">
+            <div className="text-4xl">🤖</div>
+
+            <h2 className="mt-4 text-xl font-bold">AI Interview Coach</h2>
+
+            <p className="mt-3 text-gray-400">
+              Practice technical, behavioral and HR questions with
+              AI-powered feedback.
+            </p>
+
+            <button
+              onClick={() => router.push("/interview")}
+              className="mt-5 text-sm font-semibold text-purple-400 hover:text-purple-300"
+            >
+              Start Interview Practice →
             </button>
           </div>
 
