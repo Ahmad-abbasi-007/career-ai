@@ -10,6 +10,7 @@ export default function DashboardPage() {
   const router = useRouter();
 
   const [user, setUser] = useState<User | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     async function getUser() {
@@ -23,6 +24,14 @@ export default function DashboardPage() {
       }
 
       setUser(user);
+
+      const { data: adminRecord } = await supabase
+        .from("admin_users")
+        .select("user_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      setIsAdmin(Boolean(adminRecord));
     }
 
     getUser();
@@ -64,7 +73,15 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
+            {isAdmin && (
+              <button
+                onClick={() => router.push("/admin/jobs")}
+                className="rounded-lg bg-indigo-600 px-5 py-3 font-semibold hover:bg-indigo-700"
+              >
+                Manage Jobs
+              </button>
+            )}
 
             <button
               onClick={() => router.push("/profile")}
@@ -79,7 +96,6 @@ export default function DashboardPage() {
             >
               Logout
             </button>
-
           </div>
         </div>
 
