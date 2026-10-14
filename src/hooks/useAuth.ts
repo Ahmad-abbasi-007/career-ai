@@ -60,7 +60,30 @@ export function useAuth() {
   }
 
   useEffect(() => {
-    getCurrentUser();
+    let isMounted = true;
+
+    const fetchCurrentUser = async () => {
+      try {
+        const currentUser = await account.get();
+        if (isMounted) {
+          setUser(currentUser);
+        }
+      } catch {
+        if (isMounted) {
+          setUser(null);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void fetchCurrentUser();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return {

@@ -39,50 +39,61 @@ export default function ResumePage() {
 
   // Load current user's resume
   useEffect(() => {
-    loadResume();
-  }, []);
+    let isMounted = true;
 
-  async function loadResume() {
-    setLoading(true);
-    setError("");
+    const fetchResume = async () => {
+      setLoading(true);
+      setError("");
 
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
 
-      if (userError || !user) {
-        throw new Error("Please login first.");
+        if (userError || !user) {
+          throw new Error("Please login first.");
+        }
+
+        const { data, error: resumeError } =
+          await supabase
+            .from("resumes")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("created_at", {
+              ascending: false,
+            })
+            .limit(1)
+            .maybeSingle();
+
+        if (resumeError) {
+          throw new Error(resumeError.message);
+        }
+
+        if (isMounted) {
+          setResume(data);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Could not load resume."
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
+    };
 
-      const { data, error: resumeError } =
-        await supabase
-          .from("resumes")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", {
-            ascending: false,
-          })
-          .limit(1)
-          .maybeSingle();
+    void fetchResume();
 
-      if (resumeError) {
-        throw new Error(resumeError.message);
-      }
-
-      setResume(data);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Could not load resume."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
+    return () => {
+      isMounted = false;
+    };
+  }, [supabase]);
   // Upload resume
   async function handleUpload(
     event: ChangeEvent<HTMLInputElement>
