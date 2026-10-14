@@ -32,6 +32,10 @@ export default function Navbar() {
             Applications
           </Link>
 
+          <Link href="/saved-jobs" className="text-gray-300 hover:text-white">
+            Saved Jobs
+          </Link>
+
           <Link href="#features" className="text-gray-300 hover:text-white">
             Features
           </Link>

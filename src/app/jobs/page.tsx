@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import Navbar from "@/components/Navbar";
+import SaveJobButton from "@/components/SaveJobButton";
 import type { Job } from "@/types";
 
 export default function JobsPage() {
@@ -338,20 +339,24 @@ export default function JobsPage() {
 
                   {/* Buttons */}
 
-                  <div className="mt-auto flex gap-3 pt-6">
-                    <Link
-                      href={`/jobs/${job.id}`}
-                      className="flex-1 rounded-lg bg-blue-600 px-4 py-3 text-center text-sm font-semibold hover:bg-blue-700"
-                    >
-                      View Details
-                    </Link>
+                  <div className="mt-auto space-y-3 pt-6">
+                    <div className="flex gap-3">
+                      <Link
+                        href={`/jobs/${job.id}`}
+                        className="flex-1 rounded-lg bg-blue-600 px-4 py-3 text-center text-sm font-semibold hover:bg-blue-700"
+                      >
+                        View Details
+                      </Link>
 
-                    <Link
-                      href={`/job-match?jobId=${job.id}`}
-                      className="rounded-lg border border-gray-700 px-4 py-3 text-center text-sm font-semibold hover:bg-gray-800"
-                    >
-                      🎯 AI
-                    </Link>
+                      <Link
+                        href={`/job-match?jobId=${job.id}`}
+                        className="rounded-lg border border-gray-700 px-4 py-3 text-center text-sm font-semibold hover:bg-gray-800"
+                      >
+                        🎯 AI
+                      </Link>
+                    </div>
+
+                    <SaveJobButton jobId={job.id} />
                   </div>
                 </article>
               ))}

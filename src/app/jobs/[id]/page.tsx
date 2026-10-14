@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import ApplyButton from "@/components/ApplyButton";
+import SaveJobButton from "@/components/SaveJobButton";
 import { createClient } from "@/lib/supabase";
+
 import type { Job } from "@/types";
 
 type JobDetailsPageProps = {
@@ -198,6 +200,7 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
 
           <aside className="space-y-6">
             <ApplyButton jobId={job.id} />
+            <SaveJobButton jobId={job.id} />
 
             <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6">
               <h2 className="text-xl font-bold">Job Information</h2>
