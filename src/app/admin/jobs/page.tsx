@@ -85,14 +85,20 @@ export default function AdminJobsPage() {
       }
 
       const { data: admin, error: adminError } = await supabase
-        .from("admin_users")
+        .from("super_admins")
         .select("user_id")
         .eq("user_id", authData.user.id)
         .maybeSingle();
 
       if (!active) return;
 
-      if (adminError || !admin) {
+      if (adminError) {
+        setError(`Could not verify administrator access: ${adminError.message}`);
+        setLoading(false);
+        return;
+      }
+
+      if (!admin) {
         setAuthorized(false);
         setLoading(false);
         return;
@@ -259,6 +265,11 @@ export default function AdminJobsPage() {
           <p className="mt-3 text-slate-400">
             This page is only available to authorized CareerAI administrators.
           </p>
+          {error && (
+            <p role="alert" className="mt-4 text-sm text-red-300">
+              {error}
+            </p>
+          )}
           <Link
             href="/dashboard"
             className="mt-6 inline-block rounded-lg bg-indigo-600 px-5 py-3 font-semibold hover:bg-indigo-500"
@@ -286,12 +297,20 @@ export default function AdminJobsPage() {
             </p>
           </div>
 
-          <Link
-            href="/jobs"
-            className="rounded-lg border border-slate-700 px-4 py-2 hover:bg-slate-800"
-          >
-            View Job Marketplace
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/admin/recruiters"
+              className="rounded-lg border border-emerald-800 px-4 py-2 text-emerald-300 hover:bg-emerald-950"
+            >
+              Recruiter Requests
+            </Link>
+            <Link
+              href="/jobs"
+              className="rounded-lg border border-slate-700 px-4 py-2 hover:bg-slate-800"
+            >
+              View Job Marketplace
+            </Link>
+          </div>
         </div>
 
         {message && (

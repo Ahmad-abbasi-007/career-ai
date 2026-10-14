@@ -5,33 +5,58 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
+type UserRole = "student" | "recruiter" | "super_admin";
+
+function isUserRole(role: string): role is UserRole {
+  return role === "student" || role === "recruiter" || role === "super_admin";
+}
+
 export default function DashboardPage() {
   const supabase = createClient();
   const router = useRouter();
 
   const [user, setUser] = useState<User | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [role, setRole] = useState<UserRole | null>(null);
+  const [accountError, setAccountError] = useState("");
 
   useEffect(() => {
     async function getUser() {
       const {
         data: { user },
+        error: authError,
       } = await supabase.auth.getUser();
 
-      if (!user) {
+      if (authError || !user) {
         router.push("/login");
         return;
       }
 
       setUser(user);
 
-      const { data: adminRecord } = await supabase
-        .from("admin_users")
-        .select("user_id")
+      const { data: roleRecord, error: roleError } = await supabase
+        .from("user_roles")
+        .select("role, status")
         .eq("user_id", user.id)
         .maybeSingle();
 
-      setIsAdmin(Boolean(adminRecord));
+      if (roleError || !roleRecord) {
+        console.error("Could not load account role:", roleError);
+        setAccountError("Could not verify your account permissions.");
+        return;
+      }
+
+      if (roleRecord.status !== "active") {
+        await supabase.auth.signOut();
+        router.replace("/login");
+        return;
+      }
+
+      if (!isUserRole(roleRecord.role)) {
+        setAccountError("Your account has an invalid role configuration.");
+        return;
+      }
+
+      setRole(roleRecord.role);
     }
 
     getUser();
@@ -74,13 +99,21 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            {isAdmin && (
-              <button
-                onClick={() => router.push("/admin/jobs")}
-                className="rounded-lg bg-indigo-600 px-5 py-3 font-semibold hover:bg-indigo-700"
-              >
-                Manage Jobs
-              </button>
+            {role === "super_admin" && (
+              <>
+                <button
+                  onClick={() => router.push("/admin/recruiters")}
+                  className="rounded-lg bg-emerald-600 px-5 py-3 font-semibold hover:bg-emerald-500"
+                >
+                  Recruiter Requests
+                </button>
+                <button
+                  onClick={() => router.push("/admin/jobs")}
+                  className="rounded-lg bg-indigo-600 px-5 py-3 font-semibold hover:bg-indigo-700"
+                >
+                  Manage Jobs
+                </button>
+              </>
             )}
 
             <button
@@ -98,6 +131,28 @@ export default function DashboardPage() {
             </button>
           </div>
         </div>
+
+        {accountError && (
+          <p
+            role="alert"
+            className="mt-6 rounded-lg bg-red-950 p-4 text-red-300"
+          >
+            {accountError}
+          </p>
+        )}
+
+        {role === "recruiter" && (
+          <div className="mt-8 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-6">
+            <p className="text-sm font-semibold uppercase tracking-wide text-indigo-300">
+              Approved Recruiter
+            </p>
+            <h2 className="mt-2 text-xl font-bold">Welcome to CareerAI</h2>
+            <p className="mt-2 text-gray-400">
+              Your recruiter account is active. Recruiter job and applicant
+              management will be available from this account.
+            </p>
+          </div>
+        )}
 
         {/* Cards */}
         <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
