@@ -36,6 +36,10 @@ export default function Navbar() {
             Saved Jobs
           </Link>
 
+          <Link href="/alerts" className="text-gray-300 hover:text-white">
+            Job Alerts
+          </Link>
+
           <Link href="#features" className="text-gray-300 hover:text-white">
             Features
           </Link>
