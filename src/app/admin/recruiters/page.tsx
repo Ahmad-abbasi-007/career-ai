@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import AccountMenu from "@/components/AccountMenu";
 
 type RecruiterRequest = {
   id: string;
@@ -14,6 +15,7 @@ type RecruiterRequest = {
   website: string | null;
   company_details: string | null;
   status: "pending" | "approved" | "rejected";
+  account_status: "active" | "pending" | "rejected" | "suspended" | null;
   created_at: string;
   reviewed_at: string | null;
 };
@@ -29,6 +31,7 @@ export default function AdminRecruitersPage() {
   const [message, setMessage] = useState("");
 
   const loadRequests = useCallback(async () => {
+    setError("");
     const { data, error: requestError } = await supabase
       .from("recruiter_requests")
       .select(
@@ -41,7 +44,31 @@ export default function AdminRecruitersPage() {
       return;
     }
 
-    setRequests((data ?? []) as RecruiterRequest[]);
+    const rows = data ?? [];
+    const userIds = rows.map((request) => request.user_id);
+    const { data: roles, error: roleError } = userIds.length
+      ? await supabase
+          .from("user_roles")
+          .select("user_id, role, status")
+          .in("user_id", userIds)
+      : { data: [], error: null };
+
+    if (roleError) {
+      setError(`Could not load recruiter access status: ${roleError.message}`);
+      return;
+    }
+
+    const recruiterRoles = new Map(
+      (roles ?? [])
+        .filter((role) => role.role === "recruiter")
+        .map((role) => [role.user_id, role.status])
+    );
+    setRequests(
+      rows.map((request) => ({
+        ...request,
+        account_status: recruiterRoles.get(request.user_id) ?? null,
+      }))
+    );
   }, [supabase]);
 
   useEffect(() => {
@@ -78,20 +105,8 @@ export default function AdminRecruitersPage() {
 
       setAuthorized(true);
 
-      const { data, error: requestError } = await supabase
-        .from("recruiter_requests")
-        .select(
-          "id, user_id, full_name, company_name, work_email, website, company_details, status, created_at, reviewed_at"
-        )
-        .order("created_at", { ascending: false });
-
+      await loadRequests();
       if (!active) return;
-
-      if (requestError) {
-        setError(requestError.message);
-      } else {
-        setRequests((data ?? []) as RecruiterRequest[]);
-      }
 
       setLoading(false);
     }
@@ -101,7 +116,7 @@ export default function AdminRecruitersPage() {
     return () => {
       active = false;
     };
-  }, [router, supabase]);
+  }, [loadRequests, router, supabase]);
 
   async function reviewRequest(
     request: RecruiterRequest,
@@ -140,6 +155,45 @@ export default function AdminRecruitersPage() {
         : `${request.company_name}'s request was rejected.`
     );
 
+    await loadRequests();
+    setBusyId(null);
+  }
+
+  async function changeRecruiterAccess(
+    request: RecruiterRequest,
+    activate: boolean
+  ) {
+    const action = activate ? "reactivate" : "suspend";
+    if (
+      !window.confirm(
+        `${activate ? "Restore" : "Suspend"} access for ${request.company_name}? Company details, jobs, and history will be preserved.`
+      )
+    ) {
+      return;
+    }
+
+    setBusyId(request.id);
+    setError("");
+    setMessage("");
+    const { error: accessError } = await supabase.rpc(
+      "set_recruiter_access",
+      {
+        p_user_id: request.user_id,
+        p_active: activate,
+      }
+    );
+
+    if (accessError) {
+      setError(`Could not ${action} recruiter access: ${accessError.message}`);
+      setBusyId(null);
+      return;
+    }
+
+    setMessage(
+      activate
+        ? `${request.company_name}'s recruiter access was restored.`
+        : `${request.company_name}'s recruiter access was suspended; company data and jobs were preserved.`
+    );
     await loadRequests();
     setBusyId(null);
   }
@@ -196,7 +250,7 @@ export default function AdminRecruitersPage() {
               platform.
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Link
               href="/admin/jobs"
               className="rounded-lg border border-gray-700 px-4 py-2 hover:bg-gray-800"
@@ -209,6 +263,7 @@ export default function AdminRecruitersPage() {
             >
               Dashboard
             </Link>
+            <AccountMenu />
           </div>
         </div>
 
@@ -278,6 +333,22 @@ export default function AdminRecruitersPage() {
                     <p className="mt-2 text-gray-300">
                       {request.full_name || "Recruiter"} · {request.work_email}
                     </p>
+                    {request.status === "approved" && (
+                      <p className="mt-1 text-sm text-gray-400">
+                        Account access:{" "}
+                        <span
+                          className={
+                            request.account_status === "active"
+                              ? "text-emerald-300"
+                              : request.account_status === "suspended"
+                                ? "text-red-300"
+                                : "text-amber-300"
+                          }
+                        >
+                          {request.account_status || "unknown"}
+                        </span>
+                      </p>
+                    )}
                     <p className="mt-1 text-sm text-gray-500">
                       Submitted{" "}
                       {new Date(request.created_at).toLocaleDateString()}
@@ -308,6 +379,31 @@ export default function AdminRecruitersPage() {
                       </button>
                     </div>
                   )}
+                  {request.status === "approved" &&
+                    (request.account_status === "active" ||
+                      request.account_status === "suspended") && (
+                      <button
+                        type="button"
+                        disabled={busyId === request.id}
+                        onClick={() =>
+                          void changeRecruiterAccess(
+                            request,
+                            request.account_status === "suspended"
+                          )
+                        }
+                        className={`rounded-lg border px-4 py-2 text-sm font-semibold disabled:opacity-50 ${
+                          request.account_status === "suspended"
+                            ? "border-emerald-700 text-emerald-300 hover:bg-emerald-950"
+                            : "border-red-900 text-red-300 hover:bg-red-950"
+                        }`}
+                      >
+                        {busyId === request.id
+                          ? "Saving..."
+                          : request.account_status === "suspended"
+                            ? "Reactivate Access"
+                            : "Suspend Access"}
+                      </button>
+                    )}
                 </div>
 
                 {request.website && (

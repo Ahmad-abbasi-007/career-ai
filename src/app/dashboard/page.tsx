@@ -1,9 +1,10 @@
 "use client";
 
 import type { User } from "@supabase/supabase-js";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import AccountMenu from "@/components/AccountMenu";
 
 type UserRole = "student" | "recruiter" | "super_admin";
 
@@ -12,7 +13,7 @@ function isUserRole(role: string): role is UserRole {
 }
 
 export default function DashboardPage() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 
   const [user, setUser] = useState<User | null>(null);
@@ -62,13 +63,6 @@ export default function DashboardPage() {
     getUser();
   }, [router, supabase]);
 
-  async function handleLogout() {
-    await supabase.auth.signOut();
-
-    router.push("/login");
-    router.refresh();
-  }
-
   if (!user) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gray-950 text-white">
@@ -98,7 +92,7 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {role === "super_admin" && (
               <>
                 <button
@@ -116,19 +110,7 @@ export default function DashboardPage() {
               </>
             )}
 
-            <button
-              onClick={() => router.push("/profile")}
-              className="rounded-lg bg-blue-600 px-5 py-3 font-semibold hover:bg-blue-700"
-            >
-              My Profile
-            </button>
-
-            <button
-              onClick={handleLogout}
-              className="rounded-lg bg-red-600 px-5 py-3 font-semibold hover:bg-red-700"
-            >
-              Logout
-            </button>
+            <AccountMenu />
           </div>
         </div>
 

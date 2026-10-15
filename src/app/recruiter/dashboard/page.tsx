@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import AccountMenu from "@/components/AccountMenu";
 
 type RecruiterRequest = {
   full_name: string | null;
@@ -23,9 +24,6 @@ export default function RecruiterDashboard() {
   const [error, setError] = useState("");
 
   const loadDashboard = useCallback(async () => {
-    setLoading(true);
-    setError("");
-
     try {
       const { data: authData, error: authError } =
         await supabase.auth.getUser();
@@ -86,20 +84,12 @@ export default function RecruiterDashboard() {
   }, [router, supabase]);
 
   useEffect(() => {
-    void loadDashboard();
-  }, [loadDashboard]);
-
-  async function handleLogout() {
-    const { error: logoutError } = await supabase.auth.signOut();
-
-    if (logoutError) {
-      setError("Could not log out. Please try again.");
-      return;
+    async function initialize() {
+      await loadDashboard();
     }
 
-    router.replace("/login");
-    router.refresh();
-  }
+    void initialize();
+  }, [loadDashboard]);
 
   if (loading) {
     return (
@@ -125,12 +115,7 @@ export default function RecruiterDashboard() {
             </p>
           </div>
 
-          <button
-            onClick={() => void handleLogout()}
-            className="rounded-lg border border-gray-700 px-4 py-2 hover:bg-gray-800"
-          >
-            Log Out
-          </button>
+          <AccountMenu />
         </header>
 
         {error && (
@@ -143,7 +128,11 @@ export default function RecruiterDashboard() {
             </h2>
             <p className="mt-2 text-sm text-amber-100">{error}</p>
             <button
-              onClick={() => void loadDashboard()}
+              onClick={() => {
+                setLoading(true);
+                setError("");
+                void loadDashboard();
+              }}
               className="mt-4 rounded-lg border border-amber-700 px-4 py-2 hover:bg-amber-900/50"
             >
               Try Again

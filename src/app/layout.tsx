@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import StudentNavigation from "@/components/StudentNavigation";
 
 export const metadata: Metadata = {
   title: "CareerAI",
@@ -12,8 +13,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" data-scroll-behavior="smooth">
+      <body>
+        <StudentNavigation>{children}</StudentNavigation>
+      </body>
     </html>
   );
 }

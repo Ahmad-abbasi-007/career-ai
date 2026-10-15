@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import { createClient } from "@/lib/supabase";
@@ -22,7 +22,7 @@ type SavedJob = {
 };
 
 export default function SavedJobsPage() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [jobs, setJobs] = useState<SavedJob[]>([]);
   const [loading, setLoading] = useState(true);

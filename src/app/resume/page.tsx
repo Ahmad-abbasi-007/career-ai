@@ -1,7 +1,8 @@
 "use client";
 
-import { ChangeEvent, useEffect, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase";
+import AccountMenu from "@/components/AccountMenu";
 
 type Resume = {
   id: string;
@@ -22,7 +23,7 @@ type Analysis = {
 };
 
 export default function ResumePage() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [resume, setResume] = useState<Resume | null>(null);
 
@@ -405,20 +406,23 @@ export default function ResumePage() {
       <div className="mx-auto max-w-5xl">
 
         {/* Header */}
-        <div className="mb-10">
-          <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-blue-400">
-            CareerAI
-          </p>
+        <div className="mb-10 flex items-start justify-between gap-4">
+          <div>
+            <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-blue-400">
+              CareerAI
+            </p>
 
-          <h1 className="text-4xl font-bold">
-            AI Resume Analyzer
-          </h1>
+            <h1 className="text-4xl font-bold">
+              AI Resume Analyzer
+            </h1>
 
-          <p className="mt-3 max-w-2xl text-gray-400">
-            Upload your resume and let Gemini AI
-            analyze your skills, strengths,
-            missing keywords, and improvements.
-          </p>
+            <p className="mt-3 max-w-2xl text-gray-400">
+              Upload your resume and let Gemini AI
+              analyze your skills, strengths,
+              missing keywords, and improvements.
+            </p>
+          </div>
+          <AccountMenu />
         </div>
 
         {/* Messages */}

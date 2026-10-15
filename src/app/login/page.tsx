@@ -13,7 +13,45 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const [error, setError] = useState("");
+  const [resetMessage, setResetMessage] = useState("");
+  const [resetError, setResetError] = useState("");
+
+  async function sendPasswordReset() {
+    setResetMessage("");
+    setResetError("");
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail) {
+      setResetError("Enter your email above first.");
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      const { error: sendError } = await supabase.auth.resetPasswordForEmail(
+        normalizedEmail,
+        { redirectTo: `${window.location.origin}/reset-password` }
+      );
+      if (sendError) {
+        setResetError(
+          `Could not send the password reset email: ${sendError.message}`
+        );
+      } else {
+        setResetMessage(
+          "If this email has a CareerAI account, a secure password reset link has been sent."
+        );
+      }
+    } catch (sendError) {
+      setResetError(
+        sendError instanceof Error
+          ? `Could not send the password reset email: ${sendError.message}`
+          : "Could not send the password reset email. Please try again."
+      );
+    } finally {
+      setResetLoading(false);
+    }
+  }
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -138,6 +176,28 @@ export default function LoginPage() {
               className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 outline-none focus:border-blue-500"
             />
           </div>
+
+          <div className="-mt-2 text-right">
+            <button
+              type="button"
+              onClick={() => void sendPasswordReset()}
+              disabled={resetLoading}
+              className="text-sm text-blue-400 hover:text-blue-300 disabled:opacity-60"
+            >
+              {resetLoading ? "Sending reset link..." : "Forgot password?"}
+            </button>
+          </div>
+
+          {resetMessage && (
+            <p role="status" className="rounded-lg bg-emerald-500/10 p-3 text-sm text-emerald-300">
+              {resetMessage}
+            </p>
+          )}
+          {resetError && (
+            <p role="alert" className="rounded-lg bg-red-500/10 p-3 text-sm text-red-300">
+              {resetError}
+            </p>
+          )}
 
           <div>
             <label

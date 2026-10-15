@@ -2,7 +2,7 @@ export default function Footer() {
   return (
     <footer
       id="about"
-      className="border-t border-white/10 px-6 py-10"
+      className="scroll-mt-20 border-t border-white/10 px-6 py-10"
     >
       <div className="mx-auto flex max-w-7xl flex-col justify-between gap-4 sm:flex-row">
         

@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
+import AccountMenu from "@/components/AccountMenu";
 
 type Stats = {
   students: number | null;
@@ -12,6 +13,13 @@ type Stats = {
   approvedRecruiters: number | null;
   jobs: number | null;
   applications: number | null;
+};
+
+type SuperAdminMember = {
+  user_id: string;
+  is_primary: boolean;
+  email: string | null;
+  full_name: string | null;
 };
 
 const initialStats: Stats = {
@@ -24,17 +32,20 @@ const initialStats: Stats = {
 };
 
 export default function SuperAdminDashboard() {
+  const [supabase] = useState(() => createClient());
   const [stats, setStats] = useState<Stats>(initialStats);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [authorized, setAuthorized] = useState(false);
+  const [isPrimaryAdmin, setIsPrimaryAdmin] = useState(false);
+  const [superAdmins, setSuperAdmins] = useState<SuperAdminMember[]>([]);
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminBusy, setAdminBusy] = useState(false);
+  const [adminMessage, setAdminMessage] = useState("");
+  const [adminError, setAdminError] = useState("");
 
   const loadDashboard = useCallback(async () => {
-    setLoading(true);
-    setError("");
-
     try {
-      const supabase = createClient();
       const { data: authData, error: authError } =
         await supabase.auth.getUser();
 
@@ -57,6 +68,52 @@ export default function SuperAdminDashboard() {
       }
 
       setAuthorized(true);
+      const primaryAdmin = authData.user.email?.toLowerCase() ===
+        "ar3359499@gmail.com";
+      setIsPrimaryAdmin(primaryAdmin);
+
+      const { data: adminRecords, error: adminListError } = await supabase
+        .from("super_admins")
+        .select("user_id");
+
+      if (adminListError) {
+        setSuperAdmins([]);
+        setAdminError(
+          `Could not load the Super Admin list (${adminListError.code || "database error"}): ${adminListError.message}. You can still add an account below.`
+        );
+      } else {
+        const adminIds = (adminRecords ?? []).map((record) => record.user_id);
+        const { data: profiles, error: profilesError } = adminIds.length
+          ? await supabase
+              .from("profiles")
+              .select("id, email, full_name")
+              .in("id", adminIds)
+          : { data: [], error: null };
+
+        if (profilesError) {
+          setAdminError(
+            `Could not load administrator profile details (${profilesError.code || "database error"}): ${profilesError.message}.`
+          );
+        } else {
+          const profileById = new Map(
+            (profiles ?? []).map((profile) => [profile.id, profile])
+          );
+          setSuperAdmins(
+            (adminRecords ?? []).map((record) => {
+              const profile = profileById.get(record.user_id);
+              return {
+                user_id: record.user_id,
+                is_primary:
+                  (primaryAdmin && record.user_id === authData.user.id) ||
+                  profile?.email?.toLowerCase() === "ar3359499@gmail.com",
+                email: profile?.email ?? null,
+                full_name: profile?.full_name ?? null,
+              };
+            })
+          );
+          setAdminError("");
+        }
+      }
 
       const [
         studentsResult,
@@ -126,10 +183,118 @@ export default function SuperAdminDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [supabase]);
+
+  async function inviteSuperAdmin(email: string) {
+    setAdminBusy(true);
+    setAdminMessage("");
+    setAdminError("");
+
+    try {
+      const { data: shouldSendInvite, error: prepareError } =
+        await supabase.rpc("prepare_super_admin_invite", {
+          p_email: email.trim(),
+        });
+
+      if (prepareError) {
+        setAdminError(
+          prepareError.code === "PGRST202" || prepareError.code === "42883"
+            ? "The invite feature is not installed yet. Run supabase/migrations/20261015230000_invite_super_admin_without_service_key.sql in Supabase SQL Editor."
+            : `Could not prepare Super Admin access: ${prepareError.message}`
+        );
+        return;
+      }
+
+      if (shouldSendInvite) {
+        const { error: inviteError } = await supabase.auth.signInWithOtp({
+          email: email.trim(),
+          options: {
+            shouldCreateUser: true,
+            emailRedirectTo: `${window.location.origin}/reset-password?type=invite`,
+          },
+        });
+        if (inviteError) {
+          setAdminError(
+            `The invitation is prepared, but Supabase could not send the sign-in link: ${inviteError.message}. Check Auth email delivery and retry Add Super Admin to resend it.`
+          );
+          return;
+        }
+        setAdminMessage(
+          `Invitation sent to ${email.trim()}. They can accept it and set their password to access CareerAI as a Super Admin.`
+        );
+      } else {
+        const { error: resetError } =
+          await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: `${window.location.origin}/reset-password`,
+          });
+        setAdminMessage(
+          resetError
+            ? `${email.trim()} is now a Super Admin. Password setup email could not be sent: ${resetError.message}. They can request a reset link from Login.`
+            : `${email.trim()} is now a Super Admin. A password setup link has been sent.`
+        );
+      }
+
+      setAdminEmail("");
+      await loadDashboard();
+    } catch (inviteError) {
+      setAdminError(
+        inviteError instanceof Error
+          ? `Could not invite Super Admin: ${inviteError.message}`
+          : "Could not invite Super Admin. Please try again."
+      );
+    } finally {
+      setAdminBusy(false);
+    }
+  }
+
+  async function manageSuperAdmin(action: "add" | "remove", email: string) {
+    if (action === "add") {
+      await inviteSuperAdmin(email);
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `Remove ${email} as a Super Admin? Their account and history will remain.`
+      )
+    ) {
+      return;
+    }
+
+    setAdminBusy(true);
+    setAdminMessage("");
+    setAdminError("");
+    const { error: manageError } = await supabase.rpc("manage_super_admin", {
+      p_email: email.trim(),
+      p_action: "remove",
+    });
+
+    if (manageError) {
+      const migrationMissing =
+        manageError.code === "PGRST202" || manageError.code === "42883";
+      setAdminError(
+        migrationMissing
+          ? "Super Admin database setup is missing. Run the account-management migration in Supabase SQL Editor."
+          : `Could not remove Super Admin access (${manageError.code || "database error"}): ${manageError.message}`
+      );
+      setAdminBusy(false);
+      return;
+    }
+
+    setAdminEmail("");
+    setAdminMessage(
+      `${email.trim()} no longer has Super Admin access. Their CareerAI account was not deleted.`
+    );
+    await loadDashboard();
+    setAdminBusy(false);
+  }
 
   useEffect(() => {
-    void loadDashboard();
+    async function initialize() {
+      await loadDashboard();
+    }
+
+    void initialize();
   }, [loadDashboard]);
 
   const cards = [
@@ -210,13 +375,20 @@ export default function SuperAdminDashboard() {
             </p>
           </div>
 
-          <button
-            onClick={() => void loadDashboard()}
-            disabled={loading}
-            className="rounded-lg bg-indigo-600 px-5 py-3 font-semibold transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {loading ? "Refreshing..." : "↻ Refresh Data"}
-          </button>
+          <div className="flex items-center gap-3 self-end sm:self-auto">
+            <AccountMenu />
+            <button
+              onClick={() => {
+                setLoading(true);
+                setError("");
+                void loadDashboard();
+              }}
+              disabled={loading}
+              className="rounded-lg bg-indigo-600 px-5 py-3 font-semibold transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loading ? "Refreshing..." : "↻ Refresh Data"}
+            </button>
+          </div>
         </header>
 
         {error && (
@@ -297,6 +469,132 @@ export default function SuperAdminDashboard() {
                     </p>
                   </Link>
                 ))}
+              </div>
+            </section>
+
+            <section className="mt-10 rounded-2xl border border-indigo-500/20 bg-gray-900 p-6 sm:p-8">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-widest text-indigo-300">
+                    Protected access
+                  </p>
+                  <h2 className="mt-2 text-2xl font-bold">
+                    Super Admin accounts
+                  </h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-400">
+                    The primary Super Admin account ({`ar3359499@gmail.com`}) is
+                    protected. Only that account can add or remove other Super Admins; additional
+                    Super Admins keep administrative access but cannot manage
+                    administrator membership.
+                  </p>
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-400">
+                    Enter any email address. Existing active Student accounts
+                    are promoted; new addresses receive an invitation and are
+                    registered as Super Admins after accepting it. They set
+                    their own password using the secure link.
+                  </p>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-400">
+                    Removing access removes only the Super Admin role; it does
+                    not delete the person&apos;s CareerAI account or history.
+                  </p>
+                </div>
+                {isPrimaryAdmin && (
+                  <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-amber-200">
+                    Primary Super Admin
+                  </span>
+                )}
+              </div>
+
+              {isPrimaryAdmin ? (
+                <form
+                  className="mt-6 flex flex-col gap-3 border-t border-white/10 pt-6 sm:flex-row"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void manageSuperAdmin("add", adminEmail);
+                  }}
+                >
+                  <label className="sr-only" htmlFor="new-super-admin-email">
+                    Email address to invite or promote
+                  </label>
+                  <input
+                    id="new-super-admin-email"
+                    type="email"
+                    required
+                    value={adminEmail}
+                    onChange={(event) => setAdminEmail(event.target.value)}
+                    placeholder="Email address (registered or new)"
+                    className="min-w-0 flex-1 rounded-lg border border-gray-700 bg-gray-950 px-4 py-3 text-white outline-none focus:border-indigo-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={adminBusy}
+                    className="rounded-lg bg-indigo-600 px-5 py-3 font-semibold transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {adminBusy ? "Updating..." : "Add Super Admin"}
+                  </button>
+                </form>
+              ) : (
+                <p className="mt-6 border-t border-white/10 pt-6 text-sm text-gray-400">
+                  Only the primary Super Admin can add or remove administrator
+                  accounts. You can continue to manage recruiter approvals and
+                  platform jobs.
+                </p>
+              )}
+
+              {adminMessage && (
+                <p role="status" className="mt-4 rounded-lg bg-emerald-500/10 p-3 text-sm text-emerald-300">
+                  {adminMessage}
+                </p>
+              )}
+              {adminError && (
+                <p role="alert" className="mt-4 whitespace-pre-wrap rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-sm leading-6 text-amber-200">
+                  {adminError}
+                </p>
+              )}
+
+              <div className="mt-6 space-y-3">
+                {superAdmins.map((member) => (
+                  <div
+                    key={member.user_id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-gray-950/60 p-4"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-white">
+                        {member.full_name || member.email || "Super Admin"}
+                      </p>
+                      <p className="mt-1 truncate text-sm text-gray-400">
+                        {member.email || member.user_id}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                        member.is_primary
+                          ? "bg-amber-400/10 text-amber-200"
+                          : "bg-indigo-400/10 text-indigo-200"
+                      }`}>
+                        {member.is_primary ? "Primary" : "Super Admin"}
+                      </span>
+                      {isPrimaryAdmin && !member.is_primary && (
+                        <button
+                          type="button"
+                          disabled={adminBusy || !member.email}
+                          onClick={() =>
+                            member.email &&
+                            void manageSuperAdmin("remove", member.email)
+                          }
+                          className="rounded-lg border border-red-500/30 px-3 py-2 text-sm text-red-300 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Remove access
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {!loading && superAdmins.length === 0 && !adminError && (
+                  <p className="text-sm text-gray-400">
+                    No Super Admin account records were found.
+                  </p>
+                )}
               </div>
             </section>
 

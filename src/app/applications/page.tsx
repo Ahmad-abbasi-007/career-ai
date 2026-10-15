@@ -52,10 +52,6 @@ const applicationStatuses: ApplicationStatus[] = [
 
 const statuses = ["All", ...applicationStatuses];
 
-function isApplicationStatus(value: string): value is ApplicationStatus {
-  return applicationStatuses.some((status) => status === value);
-}
-
 export default function ApplicationsPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -144,46 +140,6 @@ export default function ApplicationsPage() {
       (application) => application.status === selectedStatus
     );
   }, [applications, selectedStatus]);
-
-  async function updateStatus(
-    applicationId: string,
-    newStatus: ApplicationStatus
-  ) {
-    setError("");
-    const updatedAt = new Date().toISOString();
-
-    try {
-      const { error: updateError } = await supabase
-        .from("applications")
-        .update({
-          status: newStatus,
-          updated_at: updatedAt,
-        })
-        .eq("id", applicationId);
-
-      if (updateError) throw updateError;
-
-      setApplications((current) =>
-        current.map((application) =>
-          application.id === applicationId
-            ? {
-                ...application,
-                status: newStatus,
-                updated_at: updatedAt,
-              }
-            : application
-        )
-      );
-    } catch (err) {
-      console.error("Could not update application status:", err);
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Could not update application."
-      );
-    }
-  }
 
   async function deleteApplication(applicationId: string) {
     const confirmed = window.confirm(
@@ -404,25 +360,12 @@ export default function ApplicationsPage() {
                       </div>
 
                       <div>
-                        <p className="text-sm text-gray-500">Change Status</p>
-
-                        <select
-                          value={application.status}
-                          onChange={(e) => {
-                            const value = e.target.value;
-
-                            if (isApplicationStatus(value)) {
-                              void updateStatus(application.id, value);
-                            }
-                          }}
-                          className="mt-2 w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-                        >
-                          {applicationStatuses.map((status) => (
-                            <option key={status} value={status}>
-                              {status}
-                            </option>
-                          ))}
-                        </select>
+                        <p className="text-sm text-gray-500">Status updates</p>
+                        <p className="mt-2 text-sm text-gray-300">
+                          Your recruiter will update this application as it is
+                          reviewed. You will receive a notification when the
+                          status changes.
+                        </p>
                       </div>
                     </div>
                   </div>

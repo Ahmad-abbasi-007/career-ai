@@ -49,16 +49,28 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return Response.json({ error: "Request body must be valid JSON." }, { status: 400 });
+    }
+
+    if (typeof body !== "object" || body === null) {
+      return Response.json({ error: "Invalid email request." }, { status: 400 });
+    }
+
+    const input = body as Record<string, unknown>;
     const subject =
-      typeof body.subject === "string" ? body.subject.trim() : "";
+      typeof input.subject === "string" ? input.subject.trim() : "";
     const message =
-      typeof body.message === "string" ? body.message.trim() : "";
+      typeof input.message === "string" ? input.message.trim() : "";
 
     if (
       !subject ||
       !message ||
       subject.length > 120 ||
+      /[\r\n]/.test(subject) ||
       message.length > 3000
     ) {
       return Response.json(
@@ -79,17 +91,22 @@ export async function POST(request: Request) {
       text: message,
     });
 
-    if (error) {
-      console.error("Resend error:", error);
 
-      return Response.json(
-        {
-          error:
-            "Email could not be sent. Check your Resend sender configuration.",
-        },
-        { status: 502 }
-      );
-    }
+if (error) {
+  console.error("Resend error:", {
+    name: error.name,
+    message: error.message,
+    statusCode: error.statusCode,
+  });
+
+  return Response.json(
+    {
+      error: "The email provider could not send this message. Please try again later.",
+    },
+    { status: 502 }
+  );
+}
+
 
     return Response.json({
       success: true,

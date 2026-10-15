@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import AccountMenu from "@/components/AccountMenu";
 
 type Job = {
   id: string;
@@ -76,9 +77,6 @@ export default function RecruiterApplicationsPage() {
   const [filter, setFilter] = useState("All");
 
   const loadApplications = useCallback(async () => {
-    setLoading(true);
-    setError("");
-
     try {
       const { data: authData, error: authError } =
         await supabase.auth.getUser();
@@ -271,7 +269,11 @@ export default function RecruiterApplicationsPage() {
   }, [router, supabase]);
 
   useEffect(() => {
-    void loadApplications();
+    async function initialize() {
+      await loadApplications();
+    }
+
+    void initialize();
   }, [loadApplications]);
 
   async function updateStatus(
@@ -389,7 +391,7 @@ export default function RecruiterApplicationsPage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Link
               href="/recruiter/jobs"
               className="rounded-lg border border-gray-700 px-4 py-2 hover:bg-gray-800"
@@ -402,6 +404,7 @@ export default function RecruiterApplicationsPage() {
             >
               Dashboard
             </Link>
+            <AccountMenu />
           </div>
         </div>
 
@@ -460,7 +463,11 @@ export default function RecruiterApplicationsPage() {
 
             <button
               type="button"
-              onClick={() => void loadApplications()}
+              onClick={() => {
+                setLoading(true);
+                setError("");
+                void loadApplications();
+              }}
               className="rounded-lg border border-gray-700 px-4 py-2 text-sm hover:bg-gray-800"
             >
               Refresh

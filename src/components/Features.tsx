@@ -13,6 +13,7 @@ const features: Feature[] = [
     title: "AI Resume Analysis",
     description:
       "Upload your resume and get an AI-powered analysis with scores, strengths, weaknesses, and improvement suggestions.",
+    href: "/resume",
   },
   {
     icon: "🤖",
@@ -26,18 +27,20 @@ const features: Feature[] = [
     title: "AI Interview Preparation",
     description:
       "Generate technical and HR interview questions tailored to your target job.",
+    href: "/interview",
   },
   {
     icon: "📊",
     title: "Application Tracking",
     description:
       "Track your job applications from application to interview and final result.",
+    href: "/applications",
   },
 ];
 
 export default function Features() {
   return (
-    <section id="features" className="px-6 py-24">
+    <section id="features" className="scroll-mt-20 px-6 py-24">
       <div className="mx-auto max-w-7xl">
 
         <div className="mx-auto max-w-2xl text-center">
@@ -76,7 +79,7 @@ export default function Features() {
                   href={feature.href}
                   className="mt-5 inline-block text-blue-400 hover:text-blue-300"
                 >
-                  Explore Jobs →
+                  Open Feature →
                 </Link>
               )}
             </div>

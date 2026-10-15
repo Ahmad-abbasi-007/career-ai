@@ -3,15 +3,14 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import AccountMenu from "@/components/AccountMenu";
 
 export default function Navbar() {
-  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [user, setUser] = useState<User | null>(null);
+  const [student, setStudent] = useState(false);
   const [authReady, setAuthReady] = useState(false);
-  const [authError, setAuthError] = useState("");
 
   useEffect(() => {
     const {
@@ -19,25 +18,41 @@ export default function Navbar() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setAuthReady(true);
-      setAuthError("");
     });
 
     return () => subscription.unsubscribe();
   }, [supabase]);
 
-  async function handleLogout() {
-    setAuthError("");
+  useEffect(() => {
+    let active = true;
+    async function loadRole() {
+      if (!user) {
+        setStudent(false);
+        return;
+      }
 
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      setAuthError("Could not log out. Please try again.");
-      console.error("Could not log out:", error);
-      return;
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role, status")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!active) return;
+      if (error) {
+        console.error("Could not load navigation account role:", error);
+        setStudent(false);
+        return;
+      }
+      setStudent(data?.role === "student" && data.status === "active");
     }
 
-    router.push("/");
-    router.refresh();
-  }
+    void loadRole();
+    return () => {
+      active = false;
+    };
+  }, [supabase, user]);
+
+  if (student) return null;
 
   return (
     <nav className="fixed top-0 z-50 w-full border-b border-white/10 bg-gray-950/90 backdrop-blur">
@@ -47,62 +62,10 @@ export default function Navbar() {
           Career<span className="text-blue-500">AI</span>
         </Link>
 
-        <div className="hidden items-center gap-8 md:flex">
-          <Link href="/" className="text-gray-300 hover:text-white">
-            Home
-          </Link>
-
-          <Link href="/jobs" className="text-gray-300 hover:text-white">
-            Jobs
-          </Link>
-
-          <Link href="/job-match" className="text-gray-300 hover:text-white">
-            AI Job Match
-          </Link>
-
-          <Link href="/interview" className="text-gray-300 hover:text-white">
-            AI Interview
-          </Link>
-
-          <Link href="/applications" className="text-gray-300 hover:text-white">
-            Applications
-          </Link>
-
-          <Link href="/saved-jobs" className="text-gray-300 hover:text-white">
-            Saved Jobs
-          </Link>
-
-          <Link href="/alerts" className="text-gray-300 hover:text-white">
-            Job Alerts
-          </Link>
-
-          <Link href="#features" className="text-gray-300 hover:text-white">
-            Features
-          </Link>
-
-          <Link href="#about" className="text-gray-300 hover:text-white">
-            About
-          </Link>
-        </div>
-
         <div className="flex items-center gap-3">
           {authReady &&
             (user ? (
-              <>
-                <Link
-                  href="/dashboard"
-                  className="rounded-lg px-4 py-2 text-gray-300 hover:text-white"
-                >
-                  My Account
-                </Link>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="rounded-lg bg-blue-600 px-5 py-2 font-semibold hover:bg-blue-700"
-                >
-                  Logout
-                </button>
-              </>
+              <AccountMenu />
             ) : (
               <>
                 <Link
@@ -122,11 +85,6 @@ export default function Navbar() {
         </div>
 
       </div>
-      {authError && (
-        <p role="alert" className="absolute right-6 top-full rounded-b-lg bg-red-950 px-4 py-2 text-sm text-red-300">
-          {authError}
-        </p>
-      )}
     </nav>
   );
 }

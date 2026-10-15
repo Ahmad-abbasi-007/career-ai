@@ -5,6 +5,7 @@ import type { FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import AccountMenu from "@/components/AccountMenu";
 
 type Job = {
   id: string;
@@ -297,7 +298,7 @@ export default function AdminJobsPage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Link
               href="/admin/recruiters"
               className="rounded-lg border border-emerald-800 px-4 py-2 text-emerald-300 hover:bg-emerald-950"
@@ -310,6 +311,7 @@ export default function AdminJobsPage() {
             >
               View Job Marketplace
             </Link>
+            <AccountMenu />
           </div>
         </div>
 

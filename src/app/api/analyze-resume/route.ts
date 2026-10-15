@@ -1,4 +1,5 @@
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 type ResumeAnalysis = {
   score: number;
@@ -39,6 +40,16 @@ function isResumeAnalysis(value: unknown): value is ResumeAnalysis {
 
 export async function POST(request: Request) {
   try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return Response.json({ error: "Please log in before analyzing a resume." }, { status: 401 });
+    }
+
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {

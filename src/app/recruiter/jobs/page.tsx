@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import AccountMenu from "@/components/AccountMenu";
 
 type Job = {
   id: string;
@@ -358,9 +359,12 @@ export default function RecruiterJobsPage() {
             </p>
           </div>
 
-          <span className="rounded-lg border border-gray-700 px-4 py-2 text-sm">
-            {jobs.length} {jobs.length === 1 ? "Job" : "Jobs"}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="rounded-lg border border-gray-700 px-4 py-2 text-sm">
+              {jobs.length} {jobs.length === 1 ? "Job" : "Jobs"}
+            </span>
+            <AccountMenu />
+          </div>
         </header>
 
         {error && (

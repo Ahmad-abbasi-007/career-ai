@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase";
 
 export default function SaveJobButton({
@@ -9,7 +9,7 @@ export default function SaveJobButton({
 }: {
   jobId: string;
 }) {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
