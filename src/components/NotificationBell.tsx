@@ -41,7 +41,6 @@ export default function NotificationBell() {
 
     if (listResult.error || unreadResult.error) {
       const failed = listResult.error || unreadResult.error;
-      console.error("Could not load notifications:", failed);
       setError(
         `Notifications could not be loaded: ${failed?.message || "database error"}`
       );
