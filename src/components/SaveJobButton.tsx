@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 
 export default function SaveJobButton({
@@ -12,6 +13,7 @@ export default function SaveJobButton({
   const supabase = useMemo(() => createClient(), []);
 
   const [saved, setSaved] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -26,12 +28,16 @@ export default function SaveJobButton({
           error: authError,
         } = await supabase.auth.getUser();
 
-        if (authError) throw authError;
+        if (authError && authError.name !== "AuthSessionMissingError") {
+          throw authError;
+        }
 
         if (!user) {
           if (active) setLoading(false);
           return;
         }
+
+        if (active) setAuthenticated(true);
 
         const { data, error: queryError } = await supabase
           .from("saved_jobs")
@@ -78,6 +84,17 @@ export default function SaveJobButton({
       if (!user) {
         setError("Please log in to save jobs.");
         return;
+      }
+
+      if (!loading && !authenticated) {
+        return (
+          <Link
+            href={`/login?next=${encodeURIComponent(`/jobs/${jobId}`)}`}
+            className="block rounded-lg border border-gray-700 px-4 py-2 text-center text-sm font-medium text-gray-300 transition hover:border-blue-500/50 hover:text-white"
+          >
+            Sign in to save this job
+          </Link>
+        );
       }
 
       if (saved) {

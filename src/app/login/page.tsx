@@ -123,8 +123,17 @@ export default function LoginPage() {
           break;
 
         case "student":
-          router.replace("/dashboard");
+          {
+            const requestedPath = new URLSearchParams(window.location.search).get(
+              "next"
+            );
+            const jobPath =
+              requestedPath && /^\/jobs\/[a-f0-9-]{36}$/i.test(requestedPath)
+                ? requestedPath
+                : null;
+            router.replace(jobPath || "/dashboard");
           break;
+          }
 
         default:
           await supabase.auth.signOut();

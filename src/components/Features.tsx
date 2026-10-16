@@ -1,91 +1,67 @@
 import Link from "next/link";
 
-type Feature = {
-  icon: string;
-  title: string;
-  description: string;
-  href?: string;
-};
-
-const features: Feature[] = [
+const features = [
   {
-    icon: "📄",
-    title: "AI Resume Analysis",
+    icon: "💼",
+    title: "Browse opportunities",
     description:
-      "Upload your resume and get an AI-powered analysis with scores, strengths, weaknesses, and improvement suggestions.",
-    href: "/resume",
+      "Explore job details, locations, skills, and compensation before creating an account.",
   },
   {
-    icon: "🤖",
-    title: "Smart Job Search",
+    icon: "🔎",
+    title: "Find a better fit",
     description:
-      "Search and filter job opportunities, then discover positions that match your career goals.",
-    href: "/jobs",
+      "Search open roles by title, company, skills, location, and job type.",
   },
   {
-    icon: "🎯",
-    title: "AI Interview Preparation",
+    icon: "📌",
+    title: "Keep applications organized",
     description:
-      "Generate technical and HR interview questions tailored to your target job.",
-    href: "/interview",
-  },
-  {
-    icon: "📊",
-    title: "Application Tracking",
-    description:
-      "Track your job applications from application to interview and final result.",
-    href: "/applications",
+      "Create an account to apply and keep track of your applications in one place.",
   },
 ];
 
 export default function Features() {
   return (
-    <section id="features" className="scroll-mt-20 px-6 py-24">
+    <section id="features" className="scroll-mt-20 px-6 py-20 sm:py-24">
       <div className="mx-auto max-w-7xl">
-
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-blue-500">
-            Powerful Features
+          <p className="text-sm font-semibold uppercase tracking-widest text-blue-400">
+            A simpler job search
           </p>
-
-          <h2 className="mt-3 text-4xl font-bold">
-            Everything You Need For Your Career
+          <h2 className="mt-3 text-3xl font-bold sm:text-4xl">
+            Make your next move with confidence
           </h2>
-
           <p className="mt-4 text-gray-400">
-            CareerAI combines job searching and artificial intelligence
-            into one powerful platform.
+            Find relevant opportunities and manage your applications with
+            CareerAI.
           </p>
         </div>
 
-        <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-12 grid gap-6 md:grid-cols-3">
           {features.map((feature) => (
-            <div
+            <article
               key={feature.title}
-              className="rounded-2xl border border-white/10 bg-white/5 p-6 transition hover:-translate-y-1 hover:border-blue-500/40"
+              className="rounded-2xl border border-white/10 bg-white/5 p-6"
             >
-              <div className="text-4xl">{feature.icon}</div>
-
-              <h3 className="mt-5 text-xl font-bold">
-                {feature.title}
-              </h3>
-
+              <div aria-hidden="true" className="text-3xl">
+                {feature.icon}
+              </div>
+              <h3 className="mt-5 text-xl font-bold">{feature.title}</h3>
               <p className="mt-3 leading-7 text-gray-400">
                 {feature.description}
               </p>
-
-              {feature.href && (
+              {feature.title === "Browse opportunities" && (
                 <Link
-                  href={feature.href}
-                  className="mt-5 inline-block text-blue-400 hover:text-blue-300"
+                  href="/jobs"
+                  className="mt-5 inline-block font-medium text-blue-300 hover:text-blue-200"
                 >
-                  Open Feature →
+                  Explore jobs →
                 </Link>
               )}
-            </div>
+            </article>
           ))}
         </div>
-
       </div>
     </section>
   );

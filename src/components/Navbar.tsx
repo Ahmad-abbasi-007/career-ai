@@ -63,6 +63,18 @@ export default function Navbar() {
         </Link>
 
         <div className="flex items-center gap-3">
+          <Link
+            href="/jobs"
+            className="rounded-lg px-3 py-2 text-sm text-gray-300 transition hover:text-white"
+          >
+            Browse jobs
+          </Link>
+          <Link
+            href="/#contact"
+            className="hidden rounded-lg px-3 py-2 text-sm text-gray-300 transition hover:text-white sm:block"
+          >
+            Contact
+          </Link>
           {authReady &&
             (user ? (
               <AccountMenu />

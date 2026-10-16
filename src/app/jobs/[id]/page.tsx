@@ -2,7 +2,6 @@
 
 import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import ApplyButton from "@/components/ApplyButton";
 import SaveJobButton from "@/components/SaveJobButton";
@@ -37,10 +36,10 @@ function getExternalApplicationUrl(value: string | null) {
 
 export default function JobDetailsPage({ params }: JobDetailsPageProps) {
   const { id } = use(params);
-  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authenticated, setAuthenticated] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -48,20 +47,6 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
 
     async function loadJob() {
       try {
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-
-        if (userError) {
-          throw userError;
-        }
-
-        if (!user) {
-          router.replace("/login");
-          return;
-        }
-
         const { data, error: jobError } = await supabase
           .from("jobs")
           .select(
@@ -74,14 +59,22 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
           throw jobError;
         }
 
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
+
         if (!cancelled) {
+          setAuthenticated(
+            Boolean(user) &&
+              (!authError || authError.name === "AuthSessionMissingError")
+          );
           setJob(data);
           if (!data) {
             setError("This job does not exist or has been removed.");
           }
         }
       } catch (err) {
-        console.error("Could not load job details:", err);
         if (!cancelled) {
           setError(
             err instanceof Error ? err.message : "Could not load job details."
@@ -98,7 +91,7 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [id, router, supabase]);
+  }, [id, supabase]);
 
   if (loading) {
     return (
@@ -200,7 +193,7 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
 
           <aside className="space-y-6">
             <ApplyButton jobId={job.id} />
-            <SaveJobButton jobId={job.id} />
+            {authenticated && <SaveJobButton jobId={job.id} />}
 
             <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6">
               <h2 className="text-xl font-bold">Job Information</h2>
@@ -220,29 +213,39 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-6">
-              <div className="text-3xl">🤖</div>
-              <h2 className="mt-4 text-xl font-bold">AI Job Match</h2>
-              <p className="mt-2 text-sm leading-6 text-gray-300">
-                Let CareerAI compare your profile with this job and calculate your match score.
-              </p>
-              <Link
-                href={`/job-match?jobId=${encodeURIComponent(job.id)}`}
-                className="mt-5 block rounded-lg bg-blue-600 px-5 py-3 text-center font-semibold hover:bg-blue-700"
-              >
-                🎯 Check My Match
-              </Link>
-            </div>
+            {authenticated && (
+              <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-6">
+                <h2 className="text-xl font-bold">Personalized job match</h2>
+                <p className="mt-2 text-sm leading-6 text-gray-300">
+                  Compare your profile with this job and see how your skills align.
+                </p>
+                <Link
+                  href={`/job-match?jobId=${encodeURIComponent(job.id)}`}
+                  className="mt-5 block rounded-lg bg-blue-600 px-5 py-3 text-center font-semibold hover:bg-blue-700"
+                >
+                  Check my match
+                </Link>
+              </div>
+            )}
 
             {applicationUrl ? (
-              <a
-                href={applicationUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block rounded-lg border border-gray-700 bg-gray-900 px-5 py-4 text-center font-semibold hover:bg-gray-800"
-              >
-                Apply for Job ↗
-              </a>
+              authenticated ? (
+                <a
+                  href={applicationUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded-lg border border-gray-700 bg-gray-900 px-5 py-4 text-center font-semibold hover:bg-gray-800"
+                >
+                  Continue to application ↗
+                </a>
+              ) : (
+                <Link
+                  href={`/login?next=${encodeURIComponent(`/jobs/${job.id}`)}`}
+                  className="block rounded-lg border border-gray-700 bg-gray-900 px-5 py-4 text-center font-semibold hover:bg-gray-800"
+                >
+                  Sign in to continue to application
+                </Link>
+              )
             ) : (
               <p className="rounded-lg border border-gray-800 bg-gray-900 px-5 py-4 text-center text-sm text-gray-400">
                 No external application link is available for this listing.

@@ -1003,6 +1003,19 @@ revoke all on public.profiles, public.user_roles, public.super_admins,
   public.recruiter_requests, public.jobs, public.applications, public.saved_jobs,
   public.job_alerts, public.job_screening_questions, public.application_answers,
   public.resumes from anon;
+revoke all on public.jobs from anon;
+grant select (
+ id,
+ title,
+ company,
+ location,
+ description,
+ skills,
+ salary,
+ job_type,
+ application_url,
+ created_at
+) on public.jobs to anon;
 
 create policy "profiles_read_authorized"
 on public.profiles for select to authenticated
@@ -1048,6 +1061,10 @@ using (
   )
   or public.is_super_admin()
 );
+drop policy if exists "jobs_read_public" on public.jobs;
+create policy "jobs_read_public"
+on public.jobs for select to anon
+using (true);
 create policy "jobs_insert_recruiter_or_admin"
 on public.jobs for insert to authenticated
 with check (

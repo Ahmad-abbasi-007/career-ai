@@ -78,7 +78,7 @@ export default function RegisterPage() {
         </h1>
 
         <p className="mt-3 text-center text-gray-400">
-          Start managing your career with AI.
+          Discover opportunities and keep your applications organized.
         </p>
 
         <form onSubmit={handleRegister} className="mt-8 space-y-5">

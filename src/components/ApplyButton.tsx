@@ -19,6 +19,7 @@ export default function ApplyButton({ jobId }: { jobId: string }) {
   const supabase = useMemo(() => createClient(), []);
 
   const [loading, setLoading] = useState(true);
+  const [requiresLogin, setRequiresLogin] = useState(false);
   const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState(false);
   const [error, setError] = useState("");
@@ -31,6 +32,20 @@ export default function ApplyButton({ jobId }: { jobId: string }) {
 
     async function loadApplyData() {
       try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError && userError.name !== "AuthSessionMissingError") {
+          throw userError;
+        }
+
+        if (!user) {
+          if (!cancelled) setRequiresLogin(true);
+          return;
+        }
+
         const { data: questionData, error: questionError } = await supabase
           .from("job_screening_questions")
           .select(
@@ -45,19 +60,6 @@ export default function ApplyButton({ jobId }: { jobId: string }) {
 
         if (!cancelled) {
           setQuestions((questionData ?? []) as ScreeningQuestion[]);
-        }
-
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-
-        if (userError) {
-          throw userError;
-        }
-
-        if (!user) {
-          return;
         }
 
         const { data: application, error: applicationError } =
@@ -217,6 +219,30 @@ export default function ApplyButton({ jobId }: { jobId: string }) {
         role="status"
       >
         Loading application form...
+      </div>
+    );
+  }
+
+  if (requiresLogin) {
+    const next = encodeURIComponent(`/jobs/${jobId}`);
+    return (
+      <div className="space-y-3 rounded-2xl border border-blue-500/20 bg-blue-500/5 p-5">
+        <h2 className="font-semibold text-white">Ready to apply?</h2>
+        <p className="text-sm leading-6 text-gray-300">
+          Sign in or create a student account to submit and track your application.
+        </p>
+        <Link
+          href={`/login?next=${next}`}
+          className="block rounded-lg bg-blue-600 px-5 py-3 text-center font-semibold text-white transition hover:bg-blue-700"
+        >
+          Sign in to apply
+        </Link>
+        <Link
+          href="/register"
+          className="block text-center text-sm text-blue-300 hover:text-blue-200"
+        >
+          New to CareerAI? Create an account
+        </Link>
       </div>
     );
   }
