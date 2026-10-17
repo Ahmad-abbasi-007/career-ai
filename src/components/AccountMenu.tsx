@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { createPortal } from "react-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
@@ -24,9 +25,16 @@ function getInitials(name: string) {
 export default function AccountMenu() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [user, setUser] = useState<User | null>(null);
   const [open, setOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{
+    left: number;
+    top: number;
+    maxHeight: number;
+  } | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const [error, setError] = useState("");
 
@@ -60,9 +68,10 @@ export default function AccountMenu() {
   useEffect(() => {
     if (!open) return;
 
-    function closeOnOutsideClick(event: MouseEvent) {
+    function closeOnOutsideClick(event: PointerEvent) {
       if (
         event.target instanceof Node &&
+        !rootRef.current?.contains(event.target) &&
         !menuRef.current?.contains(event.target)
       ) {
         setOpen(false);
@@ -73,13 +82,62 @@ export default function AccountMenu() {
       if (event.key === "Escape") setOpen(false);
     }
 
-    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("pointerdown", closeOnOutsideClick);
     document.addEventListener("keydown", closeOnEscape);
     return () => {
-      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function positionMenu() {
+      const trigger = triggerRef.current;
+      const menu = menuRef.current;
+      if (!trigger || !menu) return;
+
+      const margin = 12;
+      const gap = 8;
+      const triggerRect = trigger.getBoundingClientRect();
+      const menuWidth = Math.min(
+        menu.offsetWidth,
+        window.innerWidth - margin * 2
+      );
+      const naturalHeight = menu.scrollHeight;
+      const belowSpace = window.innerHeight - triggerRect.bottom - gap - margin;
+      const aboveSpace = triggerRect.top - gap - margin;
+      const placeBelow =
+        naturalHeight <= belowSpace || belowSpace >= aboveSpace;
+      const availableHeight = Math.max(
+        80,
+        placeBelow ? belowSpace : aboveSpace
+      );
+      const menuHeight = Math.min(naturalHeight, availableHeight);
+      const left = Math.max(
+        margin,
+        Math.min(
+          triggerRect.right - menuWidth,
+          window.innerWidth - menuWidth - margin
+        )
+      );
+      const top = placeBelow
+        ? triggerRect.bottom + gap
+        : triggerRect.top - gap - menuHeight;
+
+      setMenuPosition({ left, top, maxHeight: availableHeight });
+    }
+
+    const frame = window.requestAnimationFrame(positionMenu);
+    window.addEventListener("resize", positionMenu);
+    window.addEventListener("scroll", positionMenu, true);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", positionMenu);
+      window.removeEventListener("scroll", positionMenu, true);
+    };
+  }, [open, error]);
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -103,15 +161,17 @@ export default function AccountMenu() {
   const displayName = getDisplayName(user);
 
   return (
-    <div ref={menuRef} className="relative flex items-center gap-2">
+    <div ref={rootRef} className="relative flex items-center gap-2">
       <NotificationBell />
       <button
+        ref={triggerRef}
         type="button"
         aria-label="Open account menu"
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => {
           setError("");
+          setMenuPosition(null);
           setOpen((current) => !current);
         }}
         className="group flex items-center gap-2 rounded-full border border-white/10 bg-white/5 p-1.5 pr-3 text-left transition hover:border-blue-400/50 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
@@ -138,58 +198,67 @@ export default function AccountMenu() {
         </svg>
       </button>
 
-      {open && (
-        <div
-          role="menu"
-          aria-label="Account menu"
-          className="absolute right-0 z-[60] mt-3 w-72 overflow-hidden rounded-2xl border border-white/10 bg-gray-900 p-2 shadow-2xl shadow-black/40"
-        >
-          <div className="border-b border-white/10 px-3 py-3">
-            <p className="truncate text-sm font-semibold text-white">
-              {displayName}
-            </p>
-            {user.email && (
-              <p className="mt-1 truncate text-xs text-gray-400">{user.email}</p>
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            aria-label="Account menu"
+            className="fixed z-[100] w-[min(18rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-gray-900 p-2 shadow-2xl shadow-black/40"
+            style={{
+              left: menuPosition?.left ?? 12,
+              top: menuPosition?.top ?? 12,
+              maxHeight: menuPosition?.maxHeight ?? "calc(100dvh - 1.5rem)",
+              visibility: menuPosition ? "visible" : "hidden",
+            }}
+          >
+            <div className="border-b border-white/10 px-3 py-3">
+              <p className="truncate text-sm font-semibold text-white">
+                {displayName}
+              </p>
+              {user.email && (
+                <p className="mt-1 truncate text-xs text-gray-400">{user.email}</p>
+              )}
+            </div>
+
+            <div className="py-1">
+              <Link
+                href="/profile"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-200 transition hover:bg-white/5 hover:text-white"
+              >
+                <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="size-4 text-gray-400">
+                  <circle cx="10" cy="6" r="3" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M4 17c.4-2.7 2.5-4 6-4s5.6 1.3 6 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+                Profile
+              </Link>
+            </div>
+
+            {error && (
+              <p role="alert" className="mx-2 mb-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                {error}
+              </p>
             )}
-          </div>
 
-          <div className="py-1">
-            <Link
-              href="/profile"
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-200 transition hover:bg-white/5 hover:text-white"
-            >
-              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="size-4 text-gray-400">
-                <circle cx="10" cy="6" r="3" stroke="currentColor" strokeWidth="1.5" />
-                <path d="M4 17c.4-2.7 2.5-4 6-4s5.6 1.3 6 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-              Profile
-            </Link>
-          </div>
-
-          {error && (
-            <p role="alert" className="mx-2 mb-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-300">
-              {error}
-            </p>
-          )}
-
-          <div className="border-t border-white/10 pt-1">
-            <button
-              type="button"
-              role="menuitem"
-              disabled={loggingOut}
-              onClick={() => void handleLogout()}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-red-300 transition hover:bg-red-500/10 disabled:opacity-60"
-            >
-              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="size-4">
-                <path d="M8 3.5H4.5v13H8m3-3 3-3-3-3m3 3H7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              {loggingOut ? "Signing out..." : "Log out"}
-            </button>
-          </div>
-        </div>
-      )}
+            <div className="border-t border-white/10 pt-1">
+              <button
+                type="button"
+                role="menuitem"
+                disabled={loggingOut}
+                onClick={() => void handleLogout()}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-red-300 transition hover:bg-red-500/10 disabled:opacity-60"
+              >
+                <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="size-4">
+                  <path d="M8 3.5H4.5v13H8m3-3 3-3-3-3m3 3H7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                {loggingOut ? "Signing out..." : "Log out"}
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

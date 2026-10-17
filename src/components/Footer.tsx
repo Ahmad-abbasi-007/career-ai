@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import ContactForm from "@/components/ContactForm";
 
 export default function Footer() {
@@ -6,8 +7,21 @@ export default function Footer() {
     <footer id="about" className="scroll-mt-20 border-t border-white/10 px-6">
       <div className="mx-auto grid max-w-7xl gap-12 py-14 md:grid-cols-2 md:py-16">
         <div className="flex flex-col items-start">
-          <Link href="/" className="text-2xl font-bold text-white">
-            Career<span className="text-blue-500">AI</span>
+          <Link
+            href="/"
+            aria-label="CareerAI home"
+            className="flex items-center gap-3"
+          >
+            <Image
+              src="/logo.png"
+              alt=""
+              width={64}
+              height={64}
+              className="size-14 rounded-lg bg-[#424242] object-contain"
+            />
+            <span className="text-2xl font-bold text-white">
+              Career<span className="text-blue-500">AI</span>
+            </span>
           </Link>
           <p className="mt-3 max-w-md leading-7 text-gray-400">
             Helping students discover opportunities and take the next step in

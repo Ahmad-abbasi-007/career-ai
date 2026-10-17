@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase";
@@ -123,8 +124,20 @@ export default function StudentNavigation({
   return (
     <div className="min-h-screen pt-16 lg:pl-64 lg:pt-0">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-white/10 bg-gray-950 px-4 py-6 lg:flex">
-        <Link href="/dashboard" className="px-3 text-2xl font-bold">
-          Career<span className="text-blue-500">AI</span>
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-3 px-3 text-2xl font-bold"
+        >
+          <Image
+            src="/logo.png"
+            alt=""
+            width={48}
+            height={48}
+            className="size-11 rounded-lg bg-[#424242] object-contain"
+          />
+          <span>
+            Career<span className="text-blue-500">AI</span>
+          </span>
         </Link>
         <p className="mb-5 mt-2 px-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
           Student workspace
@@ -140,8 +153,20 @@ export default function StudentNavigation({
       </aside>
 
       <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between border-b border-white/10 bg-gray-950/95 px-4 backdrop-blur lg:hidden">
-        <Link href="/dashboard" className="text-xl font-bold">
-          Career<span className="text-blue-500">AI</span>
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-2 text-xl font-bold"
+        >
+          <Image
+            src="/logo.png"
+            alt=""
+            width={40}
+            height={40}
+            className="size-9 rounded-lg bg-[#424242] object-contain"
+          />
+          <span>
+            Career<span className="text-blue-500">AI</span>
+          </span>
         </Link>
         <div className="flex items-center gap-3">
           {!pageHasAccountMenu && <AccountMenu />}

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase";
@@ -58,8 +59,22 @@ export default function Navbar() {
     <nav className="fixed top-0 z-50 w-full border-b border-white/10 bg-gray-950/90 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         
-        <Link href="/" className="text-2xl font-bold">
-          Career<span className="text-blue-500">AI</span>
+        <Link
+          href="/"
+          aria-label="CareerAI home"
+          className="flex shrink-0 items-center gap-2.5"
+        >
+          <Image
+            src="/logo.png"
+            alt=""
+            width={48}
+            height={48}
+            priority
+            className="size-11 rounded-lg bg-[#424242] object-contain"
+          />
+          <span className="text-xl font-bold sm:text-2xl">
+            Career<span className="text-blue-500">AI</span>
+          </span>
         </Link>
 
         <div className="flex items-center gap-3">
